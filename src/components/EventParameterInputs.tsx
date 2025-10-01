@@ -23,9 +23,20 @@ import {
     TooltipTrigger,
 } from './ui/tooltip';
 import DatePicker from './DatePicker';
-import { valueToDay } from '../hooks/resultsEvaluation';
 import type { Parameter, Event, UpdatingEvent } from '../contexts/PlanContext';
 import { iconMap } from '../contexts/PlanContext';
+
+export function valueToToday(
+    valueAtDay: number,
+    targetDay: number,
+    currentDay: number,
+    inflationRate: number
+): number {
+    // d = number of days between target and current
+    const d = targetDay - currentDay;
+    // Present Value = Future Value / (1 + r)^(d/365)
+    return valueAtDay / Math.pow(1 + inflationRate, d / 365);
+}
 
 interface EventParameterInputsProps {
     param: Parameter;

@@ -1,253 +1,436 @@
-// simulationRunner.ts
-import { extractSchema, validateProblem, parseEvents } from './schemaChecker';
-import {
-    get_job, inflow, outflow, gift, start_business, retirement,
-    buy_house, buy_car, have_kid, marriage, divorce, pass_away,
-    buy_health_insurance, buy_life_insurance,
-    receive_government_aid, invest_money,
-    high_yield_savings_account, buy_groceries, manual_correction,
-    get_wage_job, transfer_money, income_with_changing_parameters,
-    declare_accounts, purchase,
-    monthly_budgeting, roth_ira_contribution,
-    reoccuring_spending_inflation_adjusted, loan,
-    federal_subsidized_loan, federal_unsubsidized_loan, private_student_loan,
-    usa_tax_system
-} from './baseFunctions';
-import { evaluateResults, computeTimePoints } from './resultsEvaluation';
-import type { Plan, Schema } from '../contexts/PlanContext';
+/**
+ * Sequential Simulator for Financial Planning
+ * 
+ * This simulator processes events day-by-day, handling:
+ * - Inflow/outflow events with intervals
+ * - Recurring events
+ * - Envelope growth (compound interest, appreciation, etc.)
+ * - Dynamic envelope balances
+ */
 
-interface Datum {
-    date: number;
-    value: number;
-    parts: {
-        [key: string]: number;
-    };
-    nonNetworthParts?: {
-        [key: string]: number;
-    };
+import type { Plan, Event, UpdatingEvent, Envelope, Parameter, Schema, SimulationResult } from '../contexts/PlanContext';
+
+// Types for the simulator
+interface EnvelopeBalance {
+    name: string;
+    balance: number;
+    envelope: Envelope;
 }
 
-export function initializeEnvelopes(plan: Plan, simulation_settings: any): Record<string, any> {
-    const envelopes: Record<string, any> = {};
+interface ProcessedEvent {
+    event: Event | UpdatingEvent;
+    parentEvent?: Event;
+    nextOccurrence: number; // Day when this event next occurs
+    interval: number; // Days between occurrences (0 = non-recurring)
+}
 
-    //console.log("plan.envelopes", plan.envelopes);
-    for (const env of plan.envelopes) {
-        const name = env.name;
-        const growth_type = env.growth || "None";
-        const rate = env.rate || 0.0;
-        const days_of_usefulness = env.days_of_usefulness;
-        const inflation_rate = plan.inflation_rate;
-        const account_type = env.account_type;
-        envelopes[name] = { functions: [], growth_type, growth_rate: rate, days_of_usefulness, inflation_rate, account_type };
+interface ParameterUpdate {
+    eventId: number;
+    paramType: string;
+    value: number | string;
+}
+
+type UpdateCallback = (updates: ParameterUpdate[]) => void;
+
+/**
+ * Get parameter value from event by type
+ */
+function getParameter(event: Event | UpdatingEvent, paramType: string): number | string | undefined {
+    const param = event.parameters?.find(p => p.type === paramType);
+    return param?.value;
+}
+
+/**
+ * Check if an event function is enabled
+ */
+function isEventFunctionEnabled(event: Event | UpdatingEvent, functionType: string): boolean {
+    if (!event.event_functions) return true; // Default to enabled if no functions defined
+
+    const func = event.event_functions.find(f => f.type === functionType);
+    return func ? func.enabled : true;
+}
+
+/**
+ * Calculate growth for an envelope for one day
+ */
+function calculateDailyGrowth(envelope: Envelope, currentBalance: number, dayOfYear: number): number {
+    if (currentBalance <= 0) return 0; // No growth on zero or negative balances
+
+    const rate = envelope.rate || 0;
+
+    switch (envelope.growth) {
+        case 'None':
+            return 0;
+
+        case 'Daily Compound':
+            // Daily compound: balance * (1 + rate/365) - balance
+            return currentBalance * (rate / 365);
+
+        case 'Monthly Compound':
+            // Only apply on first day of month (approximate as every 30.44 days)
+            // Check if this is approximately the start of a month
+            if (dayOfYear % 30 === 0 || dayOfYear === 0) {
+                return currentBalance * (rate / 12);
+            }
+            return 0;
+
+        case 'Appreciation':
+            // Annual appreciation applied daily
+            return currentBalance * (rate / 365);
+
+        default:
+            return 0;
+    }
+}
+
+/**
+ * Process inflow event: add money to destination envelope
+ */
+function processInflow(
+    event: Event | UpdatingEvent,
+    balances: Map<string, EnvelopeBalance>,
+    currentDay: number
+): void {
+    if (!isEventFunctionEnabled(event, 'inflow')) return;
+
+    const amount = Number(getParameter(event, 'amount') || 0);
+    const destinationName = String(getParameter(event, 'destination_envelope') || '');
+
+    if (!destinationName || amount <= 0) return;
+
+    const destination = balances.get(destinationName);
+    if (destination) {
+        destination.balance += amount;
+    }
+}
+
+/**
+ * Process outflow event: remove money from source envelope
+ */
+function processOutflow(
+    event: Event | UpdatingEvent,
+    balances: Map<string, EnvelopeBalance>,
+    currentDay: number
+): void {
+    if (!isEventFunctionEnabled(event, 'outflow')) return;
+
+    const amount = Number(getParameter(event, 'amount') || 0);
+    const sourceName = String(getParameter(event, 'source_envelope') || '');
+
+    if (!sourceName || amount <= 0) return;
+
+    const source = balances.get(sourceName);
+    if (source) {
+        source.balance -= amount;
+    }
+}
+
+/**
+ * Process transfer event: move money from source to destination
+ */
+function processTransfer(
+    event: Event | UpdatingEvent,
+    balances: Map<string, EnvelopeBalance>,
+    currentDay: number
+): void {
+    const amount = Number(getParameter(event, 'amount') || 0);
+    const sourceName = String(getParameter(event, 'source_envelope') || '');
+    const destinationName = String(getParameter(event, 'destination_envelope') || '');
+
+    if (!sourceName || !destinationName || amount <= 0) return;
+
+    const source = balances.get(sourceName);
+    const destination = balances.get(destinationName);
+
+    if (source && destination) {
+        // Check if outflow is enabled
+        if (isEventFunctionEnabled(event, 'outflow')) {
+            source.balance -= amount;
+        }
+
+        // Check if inflow is enabled
+        if (isEventFunctionEnabled(event, 'inflow')) {
+            destination.balance += amount;
+        }
+    }
+}
+
+/**
+ * Process account balance enforcement event
+ */
+function processAccountBalance(
+    event: Event | UpdatingEvent,
+    balances: Map<string, EnvelopeBalance>,
+    currentDay: number
+): void {
+    if (!isEventFunctionEnabled(event, 'alter_account_balance')) return;
+
+    // This event can set multiple account balances (account_1, account_2, etc.)
+    for (let i = 1; i <= 5; i++) {
+        const envelopeName = String(getParameter(event, `account_${i}`) || '');
+        const balanceValue = Number(getParameter(event, `account_${i}_balance`) || 0);
+
+        if (envelopeName && balanceValue !== undefined) {
+            const envelope = balances.get(envelopeName);
+            if (envelope) {
+                envelope.balance = balanceValue;
+            }
+        }
+    }
+}
+
+/**
+ * Process a single event on a specific day
+ */
+function processEvent(
+    event: Event | UpdatingEvent,
+    balances: Map<string, EnvelopeBalance>,
+    currentDay: number,
+    schema: Schema
+): void {
+    const eventType = event.type;
+
+    // Route to appropriate handler based on event type
+    switch (eventType) {
+        case 'inflow':
+            processInflow(event, balances, currentDay);
+            break;
+
+        case 'outflow':
+            processOutflow(event, balances, currentDay);
+            break;
+
+        case 'transfer_money':
+            processTransfer(event, balances, currentDay);
+            break;
+
+        case 'account_balance':
+            processAccountBalance(event, balances, currentDay);
+            break;
+
+        default:
+            // For other event types, check if they have inflow/outflow functions
+            if (event.event_functions) {
+                // Check for transfer-like behavior
+                if (isEventFunctionEnabled(event, 'inflow') && getParameter(event, 'destination_envelope')) {
+                    processInflow(event, balances, currentDay);
+                }
+                if (isEventFunctionEnabled(event, 'outflow') && getParameter(event, 'source_envelope')) {
+                    processOutflow(event, balances, currentDay);
+                }
+            }
+            break;
+    }
+}
+
+/**
+ * Initialize envelope balances from plan
+ */
+function initializeEnvelopes(plan: Plan): Map<string, EnvelopeBalance> {
+    const balances = new Map<string, EnvelopeBalance>();
+
+    for (const envelope of plan.envelopes) {
+        balances.set(envelope.name, {
+            name: envelope.name,
+            balance: 0, // Start at zero, will be set by account_balance events
+            envelope: envelope
+        });
     }
 
-    // Add simulation settings to envelopes
-    envelopes.simulation_settings = simulation_settings;
-
-    return envelopes;
+    return balances;
 }
 
+/**
+ * Prepare events for simulation - extract all events with their timings
+ */
+function prepareEvents(plan: Plan): ProcessedEvent[] {
+    const processedEvents: ProcessedEvent[] = [];
+
+    for (const event of plan.events) {
+        const startTime = Number(getParameter(event, 'start_time') || 0);
+        const interval = event.is_recurring ? Number(getParameter(event, 'interval') || 0) : 0;
+
+        processedEvents.push({
+            event,
+            nextOccurrence: startTime,
+            interval
+        });
+
+        // Also process updating events
+        if (event.updating_events) {
+            for (const updatingEvent of event.updating_events) {
+                const updatingStartTime = Number(getParameter(updatingEvent, 'start_time') || 0);
+                const updatingInterval = updatingEvent.is_recurring ? Number(getParameter(updatingEvent, 'interval') || 0) : 0;
+
+                processedEvents.push({
+                    event: updatingEvent,
+                    parentEvent: event,
+                    nextOccurrence: updatingStartTime,
+                    interval: updatingInterval
+                });
+            }
+        }
+    }
+
+    return processedEvents;
+}
+
+/**
+ * Apply growth to all envelopes for one day
+ */
+function applyDailyGrowth(balances: Map<string, EnvelopeBalance>, dayOfYear: number): void {
+    for (const envelopeBalance of Array.from(balances.values())) {
+        const growth = calculateDailyGrowth(
+            envelopeBalance.envelope,
+            envelopeBalance.balance,
+            dayOfYear
+        );
+        envelopeBalance.balance += growth;
+    }
+}
+
+/**
+ * Calculate net worth from envelope balances
+ */
+function calculateNetWorth(balances: Map<string, EnvelopeBalance>): {
+    netWorth: number;
+    parts: Record<string, number>;
+    nonNetworthParts: Record<string, number>;
+} {
+    let netWorth = 0;
+    const parts: Record<string, number> = {};
+    const nonNetworthParts: Record<string, number> = {};
+
+    for (const [name, envelopeBalance] of Array.from(balances.entries())) {
+        const balance = envelopeBalance.balance;
+
+        // Check if this is a non-networth account (like debt tracking)
+        if (envelopeBalance.envelope.account_type === 'non_networth') {
+            nonNetworthParts[name] = balance;
+        } else {
+            // Regular networth accounts
+            parts[name] = balance;
+
+            // Debt categories should subtract from net worth
+            if (envelopeBalance.envelope.category === 'Debt') {
+                netWorth -= Math.abs(balance); // Debt reduces net worth
+            } else {
+                netWorth += balance;
+            }
+        }
+    }
+
+    return { netWorth, parts, nonNetworthParts };
+}
+
+/**
+ * Main simulation runner - processes day by day
+ */
 export async function runSimulation(
     plan: Plan,
     schema: Schema,
-    startDate: number = 0,
-    endDate: number = 30 * 365,
-    interval: number = 365,
-    currentDay?: number,
-    birthDate?: Date,
-    onPlanUpdate?: (updates: Array<{ eventId: number, paramType: string, value: number }>) => void,
-    visibleRange?: { startDate: number, endDate: number }
-): Promise<Datum[]> {
-    try {
+    startDate: number,
+    endDate: number,
+    interval: number,
+    currentDay: number,
+    birthDate: Date,
+    updateCallback?: UpdateCallback,
+    visibleRange?: { startDate: number; endDate: number }
+): Promise<SimulationResult[]> {
+    // Initialize data structures
+    const balances = initializeEnvelopes(plan);
+    const processedEvents = prepareEvents(plan);
+    const results: SimulationResult[] = [];
 
-        // Timer for validation
-        const schemaMap = extractSchema(schema);
-        const issues = validateProblem(plan, schemaMap, schema, plan);
+    // Determine simulation range
+    const simStart = visibleRange?.startDate ?? startDate;
+    const simEnd = visibleRange?.endDate ?? endDate;
 
-        if (issues.length > 0) {
-            console.error("❌ Validation issues found:");
-            for (const issue of issues) console.error(issue);
-            console.log('[runSimulation] Issues:', issues);
-        }
+    // Track events that need to fire
+    const pendingEvents = [...processedEvents];
 
-        const simulation_settings = {
-            inflation_rate: plan.inflation_rate,
-            birthDate: birthDate,
-            interval: interval,
-            start_time: startDate,
-            end_time: endDate,
-            visibleRange: visibleRange // Add visible range to simulation settings
-        };
+    // Simulate day by day
+    for (let day = simStart; day <= simEnd; day++) {
+        // Process all events that should occur on this day
+        const eventsToday: ProcessedEvent[] = [];
 
-        // Timer for parsing events
-        const parsedEvents = parseEvents(plan);
+        for (let i = pendingEvents.length - 1; i >= 0; i--) {
+            const processedEvent = pendingEvents[i];
 
-        const envelopes = initializeEnvelopes(plan, simulation_settings);
-        // Precompute canonical time points once and store for consumers
-        const precomputedTimePoints: number[] = computeTimePoints(startDate, endDate, interval, simulation_settings.visibleRange, currentDay);
-        envelopes.simulation_settings.timePoints = precomputedTimePoints;
-        //console.log('Initialized envelopes:', envelopes);
-        // Collect manual_correction events to process at the end
-        const manualCorrectionEvents: any[] = [];
-        // Collect declare_accounts events to process at the end
-        const declareAccountsEvents: any[] = [];
-        // Collect plan updates from events
-        const planUpdates: Array<{ eventId: number, paramType: string, value: number }> = [];
+            // Check if this event should fire today
+            if (processedEvent.nextOccurrence === day) {
+                eventsToday.push(processedEvent);
 
-        // Timer for applying events
-        for (const event of parsedEvents) {
-            //console.log("Event: ", event)
-
-            // Skip manual_correction events during the first pass
-            if (event.type === 'manual_correction') {
-                manualCorrectionEvents.push(event);
-                continue;
-            }
-
-            // Skip declare_accounts events during the first pass
-            if (event.type === 'declare_accounts') {
-                declareAccountsEvents.push(event);
-                continue;
-            }
-
-            switch (event.type) {
-                case 'inflow': inflow(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'outflow': outflow(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'purchase': purchase(event, envelopes); break;
-                case 'gift': gift(event, envelopes); break;
-                case 'get_job': get_job(event, envelopes); break;
-                case 'get_wage_job': get_wage_job(event, envelopes); break;
-                case 'start_business': start_business(event, envelopes); break;
-                case 'retirement': retirement(event, envelopes); break;
-                case 'buy_house': buy_house(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'buy_car': buy_car(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'have_kid': have_kid(event, envelopes); break;
-                case 'marriage': marriage(event, envelopes); break;
-                case 'divorce': divorce(event, envelopes); break;
-                case 'buy_health_insurance': buy_health_insurance(event, envelopes); break;
-                case 'buy_life_insurance': buy_life_insurance(event, envelopes); break;
-                case 'receive_government_aid': receive_government_aid(event, envelopes); break;
-                case 'invest_money': invest_money(event, envelopes); break;
-                case 'high_yield_savings_account': high_yield_savings_account(event, envelopes); break;
-                case 'buy_groceries': buy_groceries(event, envelopes); break;
-                case 'transfer_money': transfer_money(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'income_with_changing_parameters': income_with_changing_parameters(event, envelopes); break;
-                case 'reoccuring_spending_inflation_adjusted': reoccuring_spending_inflation_adjusted(event, envelopes); break;
-                case 'pass_away': pass_away(event, envelopes); break;
-                case 'monthly_budgeting': monthly_budgeting(event, envelopes); break;
-                case 'roth_ira_contribution': roth_ira_contribution(event, envelopes); break;
-                //case 'tax_payment_estimated': tax_payment_estimated(event, envelopes); break;
-                //case 'loan_amortization': loan_amortization(event, envelopes); break;
-                case 'loan': loan(event, envelopes); break;
-                case 'federal_subsidized_loan': federal_subsidized_loan(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'federal_unsubsidized_loan': federal_unsubsidized_loan(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                case 'private_student_loan': private_student_loan(event, envelopes, (updates) => {
-                    planUpdates.push(...updates);
-                }); break;
-                default:
-                    console.warn(`⚠️ Unhandled event type: ${event.type}`);
+                // Schedule next occurrence if recurring
+                if (processedEvent.interval > 0) {
+                    processedEvent.nextOccurrence = day + processedEvent.interval;
+                } else {
+                    // Remove non-recurring events after they fire
+                    pendingEvents.splice(i, 1);
+                }
             }
         }
 
-
-        // Process manual correction events
-        for (const event of manualCorrectionEvents) {
-            manual_correction(event, envelopes);
+        // Process events in order (they're already sorted by prepareEvents)
+        for (const processedEvent of eventsToday) {
+            processEvent(processedEvent.event, balances, day, schema);
         }
 
-        // Process declare accounts events
-        for (const event of declareAccountsEvents) {
-            declare_accounts(event, envelopes);
-        }
+        // Apply daily growth to all envelopes
+        applyDailyGrowth(balances, day);
 
-        // Process usa_tax_system events at the end (can use precomputed time points from simulation_settings)
-        for (const event of parsedEvents) {
-            //console.log("Event: ", event);
-            if (event.type === 'usa_tax_system') {
-                usa_tax_system(event, envelopes);
-            }
-        }
+        // Record snapshot at the specified interval
+        if (day % interval === 0 || day === simStart || day === simEnd) {
+            const { netWorth, parts, nonNetworthParts } = calculateNetWorth(balances);
 
-        // Apply plan updates if callback is provided
-        if (onPlanUpdate && planUpdates.length > 0) {
-            onPlanUpdate(planUpdates);
-        }
-
-        //console.log(envelopes)
-
-        // Remove simulation_settings from envelopes for evaluation
-        const allEvalEnvelopes = Object.fromEntries(
-            Object.entries(envelopes)
-                .filter(([key, env]) => key !== 'simulation_settings')
-        );
-
-        //console.log("allEvalEnvelopes", allEvalEnvelopes);
-
-
-        // Timer for results evaluation
-        let allResults;
-        if (plan.adjust_for_inflation) {
-            const inflationRate = plan.inflation_rate;
-            allResults = evaluateResults(allEvalEnvelopes, startDate, endDate, interval, currentDay, inflationRate, precomputedTimePoints, simulation_settings.visibleRange);
-        } else {
-            allResults = evaluateResults(allEvalEnvelopes, startDate, endDate, interval, currentDay, undefined, precomputedTimePoints, simulation_settings.visibleRange);
-        }
-
-        // Now split the results into networth and non-networth for visualization
-        const envelopeKeys = Object.keys(allResults.results);
-        const networthKeys = envelopeKeys.filter(key => envelopes[key]?.account_type !== 'non-networth-account');
-        const nonNetworthKeys = envelopeKeys.filter(key => envelopes[key]?.account_type === 'non-networth-account');
-
-        // Filter out envelopes that have zero values in all intervals
-        const nonZeroNetworthKeys = networthKeys.filter(key => allResults.results[key].some(value => value !== 0));
-        const nonZeroNonNetworthKeys = nonNetworthKeys.filter(key => allResults.results[key].some(value => value !== 0));
-
-        // Create a single array of Datum objects where each Datum contains all non-zero envelope values as parts
-        return allResults.results[envelopeKeys[0]].map((_, i) => {
-            const parts: { [key: string]: number } = {};
-            const nonNetworthParts: { [key: string]: number } = {};
-            let totalValue = 0;
-
-            // Populate parts with values from each non-zero envelope
-            nonZeroNetworthKeys.forEach(key => {
-                const value = allResults.results[key][i];
-                parts[key] = value;
-                totalValue += value;
+            results.push({
+                date: day,
+                value: netWorth,
+                parts: { ...parts },
+                nonNetworthParts: Object.keys(nonNetworthParts).length > 0 ? { ...nonNetworthParts } : undefined
             });
-
-            // Populate non-networth parts (these don't contribute to total value)
-            nonZeroNonNetworthKeys.forEach(key => {
-                const value = allResults.results[key][i];
-                nonNetworthParts[key] = value;
-            });
-
-            return {
-                date: allResults.timePoints[i],
-                value: totalValue,
-                parts,
-                nonNetworthParts
-            };
-        });
-    } catch (error) {
-        console.error('Error running simulation:', error);
-        throw error;
+        }
     }
+
+    // Ensure we have results at the start and end
+    if (results.length === 0 || results[0].date !== simStart) {
+        const { netWorth, parts, nonNetworthParts } = calculateNetWorth(balances);
+        results.unshift({
+            date: simStart,
+            value: netWorth,
+            parts: { ...parts },
+            nonNetworthParts: Object.keys(nonNetworthParts).length > 0 ? { ...nonNetworthParts } : undefined
+        });
+    }
+
+    return results;
 }
 
-// Example:
-// const output = runSimulation('plan2.json', 'event_schema.json');
-// console.log(output);
+/**
+ * Helper function to detect accounts with concerning balances
+ */
+export function detectAccountWarnings(
+    results: SimulationResult[],
+    plan: Plan
+): Array<{ envelopeName: string; date: number; balance: number }> {
+    const warnings: Array<{ envelopeName: string; date: number; balance: number }> = [];
+
+    for (const result of results) {
+        for (const [envelopeName, balance] of Object.entries(result.parts)) {
+            // Find the envelope to check its category
+            const envelope = plan.envelopes.find(e => e.name === envelopeName);
+
+            // Warn if non-debt accounts go negative
+            if (envelope && envelope.category !== 'Debt' && balance < 0) {
+                warnings.push({
+                    envelopeName,
+                    date: result.date,
+                    balance
+                });
+            }
+        }
+    }
+
+    return warnings;
+}
+
