@@ -9,6 +9,9 @@ export const u = (t: number): number => (t >= 0 ? 1.0 : 0.0);
 
 export const impulse = (t: number): number => (t == 0 ? 1.0 : 0.0);
 
+// Small time offset to avoid recursion when evaluating theta at event start time
+export const EPSILON = 0.001; // 0.001 days (~1.4 minutes)
+
 // Update P to support hybrid (constant or function) parameters
 export const P = (params: Record<string, number | ((t: number) => number)>): Theta => {
     return (t: number) => {
@@ -290,12 +293,6 @@ export const evaluateThetaAtTime = (
             const tf = descriptor.tf || 3650;
             const t0 = descriptor.t0 || 0;
 
-            console.log('Debug R descriptor evaluation:');
-            console.log('t_k:', t_k);
-            console.log('dt:', dt);
-            console.log('tf:', tf);
-            console.log('t0:', t0);
-            console.log('t:', t);
             for (let occurrenceTime = t_k; occurrenceTime <= t; occurrenceTime += dt) {
                 if (occurrenceTime <= tf) {
                     const variableValues = descriptor.f(descriptor.params, t_k - t0);
@@ -656,16 +653,22 @@ export const inflow = (event: any, envelopes: Record<string, any>, onUpdate: (up
         if (upd_type === "update_amount") {
             // Type-safe access to update_amount parameters
             const upd_params = getTypedUpdatingParams<AllEventTypes.update_amountParams>(upd);
-            //Evaluate the amount at upd_params.start_time see the difference to amount and apply difference
-            const amount_at_start_time = evaluateThetaAtTime(theta, upd_params.start_time).a;
-            const diff = upd_params.amount - amount_at_start_time;
-            // Add a T descriptor for the updated amount
-            addThetaDescriptor(theta, T_theta(
-                { t_k: upd_params.start_time, amount: upd_params.amount },
-                (params, t) => ({ a: diff }),
-                0,
-                ["a"]
-            ));
+            // Lazy evaluation: compute diff at evaluation time using epsilon to avoid recursion
+            // f(t) = a(t) + (amount - f(start_time - ε)) * u(t - start_time)
+            addThetaDescriptor(theta, {
+                type: "T",
+                t_k: upd_params.start_time,
+                t0: 0,
+                f: (params, t) => {
+                    // Evaluate at start_time - EPSILON to get the value before this descriptor activates
+                    // The unit step u(t - start_time) ensures this descriptor contributes 0 at (start_time - EPSILON)
+                    const amount_before = evaluateThetaAtTime(theta, params.start_time - EPSILON).a;
+                    const diff = params.amount - amount_before;
+                    return { a: diff };
+                },
+                params: { start_time: upd_params.start_time, amount: upd_params.amount },
+                variables: ["a"]
+            });
         }
         if (upd_type === "additional_inflow") {
             // Type-safe access to additional_inflow parameters

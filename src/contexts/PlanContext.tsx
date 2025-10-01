@@ -370,6 +370,8 @@ interface PlanContextType {
     getEventOnboardingStage: (eventType: string) => string | undefined;
     restartPlan: () => void; // restart to blank plan for both current and locked
     setShowAll: (value: boolean) => void;
+    // Event sorting methods
+    sortPlanEvents: (planData: Plan) => Plan; // Sort events and updating events by start_time
 }
 
 // Schema and default data are now imported directly
@@ -1999,6 +2001,38 @@ export function PlanProvider({ children }: PlanProviderProps) {
         },
         show_all,
         setShowAll,
+        // Sort events and updating events by start_time parameter
+        sortPlanEvents: (planData: Plan): Plan => {
+            const sortedPlan = { ...planData };
+
+            // Helper function to get start_time from parameters
+            const getStartTime = (parameters: Parameter[]): number => {
+                const startTimeParam = parameters.find(p => p.type === 'start_time');
+                return startTimeParam ? Number(startTimeParam.value) : 0;
+            };
+
+            // Sort main events by start_time
+            sortedPlan.events = [...planData.events].sort((a, b) => {
+                const startTimeA = getStartTime(a.parameters);
+                const startTimeB = getStartTime(b.parameters);
+                return startTimeA - startTimeB;
+            });
+
+            // Sort updating_events within each main event
+            sortedPlan.events = sortedPlan.events.map(event => {
+                if (event.updating_events && event.updating_events.length > 0) {
+                    const sortedUpdatingEvents = [...event.updating_events].sort((a, b) => {
+                        const startTimeA = getStartTime(a.parameters);
+                        const startTimeB = getStartTime(b.parameters);
+                        return startTimeA - startTimeB;
+                    });
+                    return { ...event, updating_events: sortedUpdatingEvents };
+                }
+                return event;
+            });
+
+            return sortedPlan;
+        },
     };
 
     // Don't render children until we've attempted to load the default plan and schema

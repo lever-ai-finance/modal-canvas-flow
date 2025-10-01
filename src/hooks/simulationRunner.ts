@@ -164,25 +164,14 @@ export async function runSimulation(
         }
 
 
-        // Merge and sort time-based adjustment events, then process in chronological order
-        const adjustmentEvents = [
-            ...manualCorrectionEvents.map(e => ({ kind: 'manual_correction' as const, event: e })),
-            ...declareAccountsEvents.map(e => ({ kind: 'declare_accounts' as const, event: e })),
-        ];
-        adjustmentEvents.sort((a, b) => {
-            const ta = a.event.parameters?.start_time ?? 0;
-            const tb = b.event.parameters?.start_time ?? 0;
-            if (ta !== tb) return ta - tb;
-            // Stable deterministic tie-breaker: manual_correction before declare_accounts
-            if (a.kind === b.kind) return 0;
-            return a.kind === 'manual_correction' ? -1 : 1;
-        });
-        for (const item of adjustmentEvents) {
-            if (item.kind === 'manual_correction') {
-                manual_correction(item.event, envelopes);
-            } else {
-                declare_accounts(item.event, envelopes);
-            }
+        // Process manual correction events
+        for (const event of manualCorrectionEvents) {
+            manual_correction(event, envelopes);
+        }
+
+        // Process declare accounts events
+        for (const event of declareAccountsEvents) {
+            declare_accounts(event, envelopes);
         }
 
         // Process usa_tax_system events at the end (can use precomputed time points from simulation_settings)

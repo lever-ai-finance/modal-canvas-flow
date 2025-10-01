@@ -389,7 +389,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     }
   }, [wheelHandler]);
 
-  const { plan, plan_locked, getEventIcon, updateParameter, schema, deleteEvent, getEventDisplayType, currentDay, registerSetZoomToDateRange, setVisualizationReady, convertDateParametersToDays, registerTriggerSimulation, registerHandleZoomToWindow, updatePlanDirectly, updateLockedPlanDirectly, isCompareMode } = usePlan();
+  const { plan, plan_locked, getEventIcon, updateParameter, schema, deleteEvent, getEventDisplayType, currentDay, registerSetZoomToDateRange, setVisualizationReady, convertDateParametersToDays, registerTriggerSimulation, registerHandleZoomToWindow, updatePlanDirectly, updateLockedPlanDirectly, isCompareMode, sortPlanEvents } = usePlan();
 
   // Register the setZoomToDateRange function with the context when it's available
   useEffect(() => {
@@ -555,10 +555,13 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         setBirthDate(birthDateObj);
       }
 
+      // Sort the plan events by start_time before converting dates
+      const sortedPlan = sortPlanEvents(plan);
+
       // Convert date parameters to days for simulation
       const convertedPlan = {
-        ...plan,
-        events: convertDateParametersToDays(plan.events)
+        ...sortedPlan,
+        events: convertDateParametersToDays(sortedPlan.events)
       };
 
       // Run simulation with visible range for two-stage evaluation
@@ -595,7 +598,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
             updatePlanDirectly(updatedPlan);
           }
         },
-        rangeToUse
+        rangeToUse,
       );
 
       // console.log('🔍 Simulation Results:', {
@@ -607,6 +610,11 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
 
       // Store the simulation data
       setNetWorthData(simulationResult);
+
+      // Update the plan with sorted events to maintain sorted state
+      if (sortedPlan !== plan) {
+        updatePlanDirectly(sortedPlan);
+      }
 
       // Extract current day balances from simulation results with enhanced data
       let currentDayBalances: Record<string, {
@@ -663,10 +671,13 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
       // Run simulation for locked plan if it exists and compare mode is on
       if (plan_locked && isCompareMode) {
         try {
+          // Sort the locked plan events by start_time before converting dates
+          const sortedPlanLocked = sortPlanEvents(plan_locked);
+
           // Convert date parameters to days for locked plan simulation
           const convertedPlanLocked = {
-            ...plan_locked,
-            events: convertDateParametersToDays(plan_locked.events)
+            ...sortedPlanLocked,
+            events: convertDateParametersToDays(sortedPlanLocked.events)
           };
 
           const lockedResult = await runSimulation(
@@ -703,14 +714,14 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                 updateLockedPlanDirectly(updatedPlan);
               }
             },
-            rangeToUse
+            rangeToUse,
           );
 
           setLockedNetWorthData(lockedResult);
 
           // Store simulation results in the locked plan
           const updatedLockedPlanWithResults = {
-            ...plan_locked, // Use original locked plan to preserve events
+            ...sortedPlanLocked, // Use sorted locked plan to preserve sorted events
             simulation_results_locked: lockedResult
           };
           updateLockedPlanDirectly(updatedLockedPlanWithResults);
