@@ -573,31 +573,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         getIntervalInDays(intervalToUse),
         currentDay,
         birthDate,
-        (updates) => {
-          if (updates.length > 0) {
-            const updatedPlan = { ...plan };
-            updates.forEach(update => {
-              const event = updatedPlan.events.find(e => e.id === update.eventId);
-              if (event) {
-                const param = event.parameters.find(p => p.type === update.paramType);
-                if (param) {
-                  // Look up parameter units from schema to determine if conversion is needed
-                  const eventSchema = schema.events.find(e => e.type === event.type);
-                  let paramSchema;
-                  if (eventSchema) {
-                    paramSchema = eventSchema.parameters.find(p => p.type === param.type);
-                  }
-                  if (paramSchema && paramSchema.parameter_units === 'date') {
-                    param.value = daysSinceBirthToDateString(update.value, plan.birth_date);
-                  } else {
-                    param.value = update.value;
-                  }
-                }
-              }
-            });
-            updatePlanDirectly(updatedPlan);
-          }
-        },
         rangeToUse,
       );
 

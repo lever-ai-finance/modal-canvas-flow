@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.leverapp",
+      "bundleIdentifier": "com.leverai.leverapp",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
