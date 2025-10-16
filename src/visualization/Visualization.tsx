@@ -32,6 +32,7 @@ import {
   getEnvelopeAndCategoryColors,
   findFirstDayAboveGoal,
   getNetWorthAndLockedOnDay,
+  computeTimePoints,
 } from './viz_utils';
 import type {
   TimeInterval,
@@ -282,7 +283,10 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
   const [tooltipLeft, setTooltipLeft] = useState<number>(0);
   const [tooltipTop, setTooltipTop] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [netWorthData, setNetWorthData] = useState<Datum[]>([]);
+  const [netWorthData, setNetWorthData] = useState<Datum[]>([]); // contains only networth data to display
+  const [lockedNetWorthData, setLockedNetWorthData] = useState<Datum[]>([]); //locked data
+  const [allnetWorthDataData, setAllData] = useState<Datum[]>([]); // contains everyday networth data and parts
+  const [allLockedNetWorthData, setAllLockedNetWorthData] = useState<Datum[]>([]);
   const [timeInterval, setTimeInterval] = useState<TimeInterval>('year');
   const [birthDate, setBirthDate] = useState<Date>(new Date(2000, 0, 1)); // Default to Jan 1, 2000
   const [hoveredEventId, setHoveredEventId] = useState<number | null>(null);
@@ -366,9 +370,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
       setIsIntervalChange(false);
     }
   }, [netWorthData, animateData]);
-
-  // State for locked plan simulation results
-  const [lockedNetWorthData, setLockedNetWorthData] = useState<{ date: number, value: number }[]>([]);
 
   const width = window.innerWidth;
   const height = window.innerHeight;
@@ -491,10 +492,12 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     return 'year';
   };
 
-  // Manual simulation control
-  const runSimulationManually = useCallback(async (
+    // SampleData updating the computing time points and pull that out of the current state
+    // Run this on line trips, zoom interval, and after full simulation run
+    // visible date range, current day, start, end date, interval
+  const sampleData = useCallback(async (
     intervalOverride?: TimeInterval,
-    visibleRangeOverride?: { startDate: number, endDate: number }
+    visibleRangeOverride?: { startDate: number, endDate: number },
   ) => {
     const intervalToUse = intervalOverride || timeInterval;
 
@@ -544,1047 +547,1157 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
       return paddedRange;
     })() : undefined;
 
-    if (!plan || !schema) return;
+    
+    // Use the computetimepoints to get all points of interest
 
-    try {
-      setIsLoading(true);
+  }, [netWorthData, lockedNetWorthData]);
 
-      // Set birth date from plan
-      if (plan.birth_date) {
-        const birthDateObj = new Date(plan.birth_date + 'T00:00:00');
-        setBirthDate(birthDateObj);
-      }
+    // Manual simulation control
+    const runSimulationManually = useCallback(async (
+      intervalOverride?: TimeInterval,
+      visibleRangeOverride?: { startDate: number, endDate: number }
+    ) => {
+      const intervalToUse = intervalOverride || timeInterval;
 
-      // Sort the plan events by start_time before converting dates
-      const sortedPlan = sortPlanEvents(plan);
+      // Get base range from override or current visible range
+      const baseRange = visibleRangeOverride || (currentVisibleRange ? {
+        startDate: currentVisibleRange.startDate,
+        endDate: currentVisibleRange.endDate
+      } : undefined);
 
-      // Convert date parameters to days for simulation
-      const convertedPlan = {
-        ...sortedPlan,
-        events: convertDateParametersToDays(sortedPlan.events)
-      };
+      // Apply padding to the range if we have one
+      const rangeToUse = baseRange ? (() => {
+        const visibleRangeWidth = baseRange.endDate - baseRange.startDate;
+        const padding = visibleRangeWidth * 5; // 5x padding
 
-      // Run simulation with visible range for two-stage evaluation
-      const simulationResult = await runSimulation(
-        convertedPlan,
-        schema,
-        startDate,
-        endDate,
-        getIntervalInDays(intervalToUse),
-        currentDay,
-        birthDate,
-        rangeToUse,
-      );
+        //console.log('🔍 Padding:', padding);
+        const paddedRange = {
+          startDate: Math.max(0, baseRange.startDate - padding),
+          endDate: Math.min(80 * 365, baseRange.endDate + padding)
+        };
 
-      // console.log('🔍 Simulation Results:', {
-      //   resultLength: simulationResult.length,
-      //   firstPoint: simulationResult[0],
-      //   lastPoint: simulationResult[simulationResult.length - 1],
-      //   rangeInDays: simulationResult[simulationResult.length - 1].date - simulationResult[0].date
-      // });
+        // console.log('🔍 Simulation Input Parameters:', {
+        //   baseRange,
+        //   visibleRangeWidth,
+        //   padding,
+        //   paddedRange,
+        //   intervalToUse,
+        //   getIntervalInDays: getIntervalInDays(intervalToUse)
+        // });
 
-      // Store the simulation data
-      setNetWorthData(simulationResult);
+        // Save triplines as padded simulation boundaries
+        leftTripDateRef.current = paddedRange.startDate;
+        rightTripDateRef.current = paddedRange.endDate;
+        try {
+          const leftFormatted = formatDate(leftTripDateRef.current, birthDate, 'full', true, false);
+          const rightFormatted = formatDate(rightTripDateRef.current, birthDate, 'full', true, false);
+          // Console log tripline information for debugging
+          console.log('Tripline dates set', {
+            visibleWindowWidthDays: visibleRangeWidth,
+            leftTripDate: leftTripDateRef.current,
+            leftTripDateFormatted: typeof leftFormatted === 'string' ? leftFormatted : String(leftFormatted),
+            rightTripDate: rightTripDateRef.current,
+            rightTripDateFormatted: typeof rightFormatted === 'string' ? rightFormatted : String(rightFormatted),
+            paddedRange,
+            baseRange
+          });
+        } catch (_) { /* no-op */ }
+        return paddedRange;
+      })() : undefined;
 
-      // Update the plan with sorted events to maintain sorted state
-      if (sortedPlan !== plan) {
-        updatePlanDirectly(sortedPlan);
-      }
+      if (!plan || !schema) return;
 
-      // Extract current day balances from simulation results with enhanced data
-      let currentDayBalances: Record<string, {
-        value: number;
-        displayName: string;
-        category: string;
-        color: { area: string; line: string };
-        isNonNetworth?: boolean;
-      }> = {};
-      const currentDayResult = simulationResult.find(result => result.date === currentDay);
-      if (currentDayResult) {
-        // Process networth parts
-        Object.entries(currentDayResult.parts).forEach(([envelopeName, value]) => {
-          const category = getEnvelopeCategory(plan, envelopeName) || 'Uncategorized';
-          const displayName = getEnvelopeDisplayName(envelopeName);
-          const color = envelopeColors[envelopeName] || categoryColors[category] || { area: '#ccc', line: '#888' };
+      try {
+        setIsLoading(true);
 
-          currentDayBalances[envelopeName] = {
-            value,
-            displayName,
-            category,
-            color,
-            isNonNetworth: false
-          };
-        });
+        // Set birth date from plan
+        if (plan.birth_date) {
+          const birthDateObj = new Date(plan.birth_date + 'T00:00:00');
+          setBirthDate(birthDateObj);
+        }
 
-        // Process non-networth parts
-        if (currentDayResult.nonNetworthParts) {
-          Object.entries(currentDayResult.nonNetworthParts).forEach(([envelopeName, value]) => {
-            const category = getEnvelopeCategory(plan, envelopeName) || 'Non-Networth';
+        // Sort the plan events by start_time before converting dates
+        const sortedPlan = sortPlanEvents(plan);
+
+        // Convert date parameters to days for simulation
+        const convertedPlan = {
+          ...sortedPlan,
+          events: convertDateParametersToDays(sortedPlan.events)
+        };
+
+        // Run simulation with visible range for two-stage evaluation
+        const simulationResult = await runSimulation(
+          convertedPlan,
+          schema,
+          startDate,
+          endDate,
+        );
+
+        // console.log('🔍 Simulation Results:', {
+        //   resultLength: simulationResult.length,
+        //   firstPoint: simulationResult[0],
+        //   lastPoint: simulationResult[simulationResult.length - 1],
+        //   rangeInDays: simulationResult[simulationResult.length - 1].date - simulationResult[0].date
+        // });
+
+        // Store the simulation data
+        setNetWorthData(simulationResult);
+
+        // Update the plan with sorted events to maintain sorted state
+        if (sortedPlan !== plan) {
+          updatePlanDirectly(sortedPlan);
+        }
+
+        // Extract current day balances from simulation results with enhanced data
+        let currentDayBalances: Record<string, {
+          value: number;
+          displayName: string;
+          category: string;
+          color: { area: string; line: string };
+          isNonNetworth?: boolean;
+        }> = {};
+        const currentDayResult = simulationResult.find(result => result.date === currentDay);
+        if (currentDayResult) {
+          // Process networth parts
+          Object.entries(currentDayResult.parts).forEach(([envelopeName, value]) => {
+            const category = getEnvelopeCategory(plan, envelopeName) || 'Uncategorized';
             const displayName = getEnvelopeDisplayName(envelopeName);
-            const color = envelopeColors[envelopeName] || categoryColors[category] || { area: '#ff6b6b', line: '#ff4757' };
+            const color = envelopeColors[envelopeName] || categoryColors[category] || { area: '#ccc', line: '#888' };
 
             currentDayBalances[envelopeName] = {
               value,
               displayName,
               category,
               color,
-              isNonNetworth: true
+              isNonNetworth: false
             };
           });
+
+          // Process non-networth parts
+          if (currentDayResult.nonNetworthParts) {
+            Object.entries(currentDayResult.nonNetworthParts).forEach(([envelopeName, value]) => {
+              const category = getEnvelopeCategory(plan, envelopeName) || 'Non-Networth';
+              const displayName = getEnvelopeDisplayName(envelopeName);
+              const color = envelopeColors[envelopeName] || categoryColors[category] || { area: '#ff6b6b', line: '#ff4757' };
+
+              currentDayBalances[envelopeName] = {
+                value,
+                displayName,
+                category,
+                color,
+                isNonNetworth: true
+              };
+            });
+          }
         }
-      }
 
-      // Store simulation results in the plan
-      // Store simulation results while preserving the original plan structure
-      const updatedPlanWithResults = {
-        ...plan, // Use original plan to preserve events
-        simulation_results: simulationResult,
-        current_balances: currentDayBalances
-      };
-      updatePlanDirectly(updatedPlanWithResults);
+        // Store simulation results in the plan
+        // Store simulation results while preserving the original plan structure
+        const updatedPlanWithResults = {
+          ...plan, // Use original plan to preserve events
+          simulation_results: simulationResult,
+          current_balances: currentDayBalances
+        };
+        updatePlanDirectly(updatedPlanWithResults);
 
-      // Run simulation for locked plan if it exists and compare mode is on
-      if (plan_locked && isCompareMode) {
-        try {
-          // Sort the locked plan events by start_time before converting dates
-          const sortedPlanLocked = sortPlanEvents(plan_locked);
+        // Run simulation for locked plan if it exists and compare mode is on
+        if (plan_locked && isCompareMode) {
+          try {
+            // Sort the locked plan events by start_time before converting dates
+            const sortedPlanLocked = sortPlanEvents(plan_locked);
 
-          // Convert date parameters to days for locked plan simulation
-          const convertedPlanLocked = {
-            ...sortedPlanLocked,
-            events: convertDateParametersToDays(sortedPlanLocked.events)
-          };
+            // Convert date parameters to days for locked plan simulation
+            const convertedPlanLocked = {
+              ...sortedPlanLocked,
+              events: convertDateParametersToDays(sortedPlanLocked.events)
+            };
 
-          const lockedResult = await runSimulation(
-            convertedPlanLocked,
-            schema,
-            startDate,
-            endDate,
-            getIntervalInDays(intervalToUse),
-            currentDay,
-            birthDate,
-            (updates) => {
-              // Handle updates for locked plan if needed
-              if (updates.length > 0) {
-                // Deep clone locked plan before applying updates to avoid mutating shared references
-                const updatedPlan = JSON.parse(JSON.stringify(plan_locked));
-                updates.forEach(update => {
-                  const event = updatedPlan.events.find((e: { id: number }) => e.id === update.eventId);
-                  if (event) {
-                    const param = event.parameters.find((p: { type: string }) => p.type === update.paramType);
-                    if (param) {
-                      const eventSchema = schema.events.find((e: { type: string }) => e.type === event.type);
-                      let paramSchema;
-                      if (eventSchema) {
-                        paramSchema = eventSchema.parameters.find((p: { type: string }) => p.type === param.type);
-                      }
-                      if (paramSchema && paramSchema.parameter_units === 'date') {
-                        param.value = daysSinceBirthToDateString(update.value, plan_locked.birth_date);
-                      } else {
-                        param.value = update.value;
+            const lockedResult = await runSimulation(
+              convertedPlanLocked,
+              schema,
+              startDate,
+              endDate,
+              getIntervalInDays(intervalToUse),
+              currentDay,
+              birthDate,
+              (updates) => {
+                // Handle updates for locked plan if needed
+                if (updates.length > 0) {
+                  // Deep clone locked plan before applying updates to avoid mutating shared references
+                  const updatedPlan = JSON.parse(JSON.stringify(plan_locked));
+                  updates.forEach(update => {
+                    const event = updatedPlan.events.find((e: { id: number }) => e.id === update.eventId);
+                    if (event) {
+                      const param = event.parameters.find((p: { type: string }) => p.type === update.paramType);
+                      if (param) {
+                        const eventSchema = schema.events.find((e: { type: string }) => e.type === event.type);
+                        let paramSchema;
+                        if (eventSchema) {
+                          paramSchema = eventSchema.parameters.find((p: { type: string }) => p.type === param.type);
+                        }
+                        if (paramSchema && paramSchema.parameter_units === 'date') {
+                          param.value = daysSinceBirthToDateString(update.value, plan_locked.birth_date);
+                        } else {
+                          param.value = update.value;
+                        }
                       }
                     }
-                  }
-                });
-                updateLockedPlanDirectly(updatedPlan);
-              }
-            },
-            rangeToUse,
-          );
+                  });
+                  updateLockedPlanDirectly(updatedPlan);
+                }
+              },
+              rangeToUse,
+            );
 
-          setLockedNetWorthData(lockedResult);
+            setLockedNetWorthData(lockedResult);
 
-          // Store simulation results in the locked plan
-          const updatedLockedPlanWithResults = {
-            ...sortedPlanLocked, // Use sorted locked plan to preserve sorted events
-            simulation_results_locked: lockedResult
-          };
-          updateLockedPlanDirectly(updatedLockedPlanWithResults);
-        } catch (err) {
-          console.error('Locked plan simulation failed:', err);
+            // Store simulation results in the locked plan
+            const updatedLockedPlanWithResults = {
+              ...sortedPlanLocked, // Use sorted locked plan to preserve sorted events
+              simulation_results_locked: lockedResult
+            };
+            updateLockedPlanDirectly(updatedLockedPlanWithResults);
+          } catch (err) {
+            console.error('Locked plan simulation failed:', err);
+            setLockedNetWorthData([]);
+          }
+        } else {
           setLockedNetWorthData([]);
         }
-      } else {
-        setLockedNetWorthData([]);
-      }
 
-      // Check for negative accounts and trigger warning
-      const negativeWarnings = detectAccountWarnings(simulationResult, plan);
-      if (negativeWarnings.length > 0 && onNegativeAccountWarning) {
-        onNegativeAccountWarning(negativeWarnings);
-      }
-
-      // Track the simulation window that was used
-      if (rangeToUse) {
-        setLastSimulationWindow({
-          startDate: rangeToUse.startDate,
-          endDate: rangeToUse.endDate,
-          totalDays: rangeToUse.endDate - rangeToUse.startDate
-        });
-      }
-    } catch (err) {
-      console.error('Simulation failed:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [plan, plan_locked, schema, timeInterval, currentDay, onNegativeAccountWarning, convertDateParametersToDays, currentVisibleRange]);
-
-  // Run simulation on initial load
-  useEffect(() => {
-    // Only run simulation on initial load
-    if (plan && schema) {
-      // console.log('🚀 Running initial simulation');
-      runSimulationManually();
-    }
-  }, []); // do not depend on plan and schema, only run on initial load
-
-  // Expose manual simulation trigger for external use
-  const triggerSimulation = useCallback(() => {
-    //console.log('🎯 Manual simulation triggered with current interval and visible range:', timeInterval, currentVisibleRange);
-    runSimulationManually(timeInterval, currentVisibleRange ? {
-      startDate: currentVisibleRange.startDate,
-      endDate: currentVisibleRange.endDate
-    } : undefined);
-  }, [runSimulationManually, timeInterval, currentVisibleRange]);
-
-  // Register the triggerSimulation function with the context when it's available so it can be used in other components
-  useEffect(() => {
-    registerTriggerSimulation(triggerSimulation);
-  }, [registerTriggerSimulation, triggerSimulation]);
-
-  // Calculate stacked data from simulation results
-  const stackedData = useMemo(() => {
-    if (!netWorthData.length) return [];
-
-    // Get all unique part keys from the data
-    const partKeys = Array.from(
-      new Set(netWorthData.flatMap(d => Object.keys(d.parts)))
-    );
-
-    // Separate debt and non-debt envelopes
-    const { debtEnvelopes, assetEnvelopes } = partKeys.reduce((acc, key) => {
-      const category = getEnvelopeCategory(plan, key);
-      if (category === 'Debt') {
-        acc.debtEnvelopes.push(key);
-      } else {
-        acc.assetEnvelopes.push(key);
-      }
-      return acc;
-    }, { debtEnvelopes: [] as string[], assetEnvelopes: [] as string[] });
-
-    return netWorthData.map(d => {
-      let posSum = 0;
-      let negSum = 0;
-      const stackedParts: { [key: string]: { y0: number, y1: number } } = {};
-
-      // First handle debt envelopes (always negative or zero)
-      debtEnvelopes.forEach(key => {
-        const value = normalizeZero(d.parts[key] || 0);
-        // Debt values should always be negative or zero
-        const adjustedValue = Math.min(value, 0);
-        stackedParts[key] = { y0: negSum, y1: negSum + adjustedValue };
-        negSum += adjustedValue;
-      });
-
-      // Then handle asset envelopes
-      assetEnvelopes.forEach(key => {
-        const value = normalizeZero(d.parts[key] || 0);
-        if (value >= 0) {
-          stackedParts[key] = { y0: posSum, y1: posSum + value };
-          posSum += value;
-        } else {
-          // For non-debt categories that temporarily go negative
-          stackedParts[key] = { y0: negSum, y1: negSum + value };
-          negSum += value;
+        // Check for negative accounts and trigger warning
+        const negativeWarnings = detectAccountWarnings(simulationResult, plan);
+        if (negativeWarnings.length > 0 && onNegativeAccountWarning) {
+          onNegativeAccountWarning(negativeWarnings);
         }
+
+        // Track the simulation window that was used
+        if (rangeToUse) {
+          setLastSimulationWindow({
+            startDate: rangeToUse.startDate,
+            endDate: rangeToUse.endDate,
+            totalDays: rangeToUse.endDate - rangeToUse.startDate
+          });
+        }
+      } catch (err) {
+        console.error('Simulation failed:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }, [plan, plan_locked, schema, timeInterval, currentDay, onNegativeAccountWarning, convertDateParametersToDays, currentVisibleRange]);
+
+    // Run simulation on initial load
+    useEffect(() => {
+      // Only run simulation on initial load
+      if (plan && schema) {
+        // console.log('🚀 Running initial simulation');
+        runSimulationManually();
+      }
+    }, []); // do not depend on plan and schema, only run on initial load
+
+    // Expose manual simulation trigger for external use
+    const triggerSimulation = useCallback(() => {
+      //console.log('🎯 Manual simulation triggered with current interval and visible range:', timeInterval, currentVisibleRange);
+      runSimulationManually(timeInterval, currentVisibleRange ? {
+        startDate: currentVisibleRange.startDate,
+        endDate: currentVisibleRange.endDate
+      } : undefined);
+    }, [runSimulationManually, timeInterval, currentVisibleRange]);
+
+    // Register the triggerSimulation function with the context when it's available so it can be used in other components
+    useEffect(() => {
+      registerTriggerSimulation(triggerSimulation);
+    }, [registerTriggerSimulation, triggerSimulation]);
+
+    // Calculate stacked data from simulation results
+    const stackedData = useMemo(() => {
+      if (!netWorthData.length) return [];
+
+      // Get all unique part keys from the data
+      const partKeys = Array.from(
+        new Set(netWorthData.flatMap(d => Object.keys(d.parts)))
+      );
+
+      // Separate debt and non-debt envelopes
+      const { debtEnvelopes, assetEnvelopes } = partKeys.reduce((acc, key) => {
+        const category = getEnvelopeCategory(plan, key);
+        if (category === 'Debt') {
+          acc.debtEnvelopes.push(key);
+        } else {
+          acc.assetEnvelopes.push(key);
+        }
+        return acc;
+      }, { debtEnvelopes: [] as string[], assetEnvelopes: [] as string[] });
+
+      return netWorthData.map(d => {
+        let posSum = 0;
+        let negSum = 0;
+        const stackedParts: { [key: string]: { y0: number, y1: number } } = {};
+
+        // First handle debt envelopes (always negative or zero)
+        debtEnvelopes.forEach(key => {
+          const value = normalizeZero(d.parts[key] || 0);
+          // Debt values should always be negative or zero
+          const adjustedValue = Math.min(value, 0);
+          stackedParts[key] = { y0: negSum, y1: negSum + adjustedValue };
+          negSum += adjustedValue;
+        });
+
+        // Then handle asset envelopes
+        assetEnvelopes.forEach(key => {
+          const value = normalizeZero(d.parts[key] || 0);
+          if (value >= 0) {
+            stackedParts[key] = { y0: posSum, y1: posSum + value };
+            posSum += value;
+          } else {
+            // For non-debt categories that temporarily go negative
+            stackedParts[key] = { y0: negSum, y1: negSum + value };
+            negSum += value;
+          }
+        });
+
+        return {
+          ...d,
+          value: normalizeZero(d.value),
+          parts: Object.fromEntries(
+            Object.entries(d.parts).map(([key, val]) => [key, normalizeZero(val)])
+          ),
+          stackedParts
+        };
       });
+    }, [netWorthData, plan]);
 
+    const screenToData = (screenX: number, screenY: number, zoom: any, yScale: any) => {
+      const x = (screenX - zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX;
+      const y = (screenY - zoom.transformMatrix.translateY) / zoom.transformMatrix.scaleY;
       return {
-        ...d,
-        value: normalizeZero(d.value),
-        parts: Object.fromEntries(
-          Object.entries(d.parts).map(([key, val]) => [key, normalizeZero(val)])
-        ),
-        stackedParts
+        x: xScale.invert(x),
+        y: yScale.invert(y)
       };
-    });
-  }, [netWorthData, plan]);
-
-  const screenToData = (screenX: number, screenY: number, zoom: any, yScale: any) => {
-    const x = (screenX - zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX;
-    const y = (screenY - zoom.transformMatrix.translateY) / zoom.transformMatrix.scaleY;
-    return {
-      x: xScale.invert(x),
-      y: yScale.invert(y)
     };
-  };
 
-  // Calculate scales based on simulation data
-  const xScale = useMemo(() => {
-    if (!netWorthData.length) return scaleLinear({ domain: [0, 1], range: [0, width] });
+    // Calculate scales based on simulation data
+    const xScale = useMemo(() => {
+      if (!netWorthData.length) return scaleLinear({ domain: [0, 1], range: [0, width] });
 
-    const maxDate = Math.max(...netWorthData.map(d => d.date));
-    return scaleLinear({
-      domain: [0, endDate],
-      range: [0, width],
-    });
-  }, [netWorthData, width]);
+      const maxDate = Math.max(...netWorthData.map(d => d.date));
+      return scaleLinear({
+        domain: [0, endDate],
+        range: [0, width],
+      });
+    }, [netWorthData, width]);
 
-  // Make sure categoryColors is defined before render logic
-  const envelopeKeys = useMemo(() => Object.keys(netWorthData[0]?.parts || {}), [netWorthData]);
-  const nonNetworthEnvelopeKeys = useMemo(() => Object.keys(netWorthData[0]?.nonNetworthParts || {}), [netWorthData]);
-  const allEnvelopeKeys = useMemo(() => [...envelopeKeys, ...nonNetworthEnvelopeKeys], [envelopeKeys, nonNetworthEnvelopeKeys]);
-  const categoryMap = useMemo(() => groupEnvelopesByCategory(plan, allEnvelopeKeys), [plan, allEnvelopeKeys]);
-  // Use new color generator
-  const { envelopeColors, categoryColors } = useMemo(() => {
-    if (!plan || !schema) return { envelopeColors: {}, categoryColors: {} };
-    return getEnvelopeAndCategoryColors(
-      allEnvelopeKeys.map(name => ({ name, category: getEnvelopeCategory(plan, name) || 'Uncategorized' })),
-      Object.keys(categoryMap)
-    );
-  }, [plan, schema, allEnvelopeKeys, categoryMap]);
+    // Make sure categoryColors is defined before render logic
+    const envelopeKeys = useMemo(() => Object.keys(netWorthData[0]?.parts || {}), [netWorthData]);
+    const nonNetworthEnvelopeKeys = useMemo(() => Object.keys(netWorthData[0]?.nonNetworthParts || {}), [netWorthData]);
+    const allEnvelopeKeys = useMemo(() => [...envelopeKeys, ...nonNetworthEnvelopeKeys], [envelopeKeys, nonNetworthEnvelopeKeys]);
+    const categoryMap = useMemo(() => groupEnvelopesByCategory(plan, allEnvelopeKeys), [plan, allEnvelopeKeys]);
+    // Use new color generator
+    const { envelopeColors, categoryColors } = useMemo(() => {
+      if (!plan || !schema) return { envelopeColors: {}, categoryColors: {} };
+      return getEnvelopeAndCategoryColors(
+        allEnvelopeKeys.map(name => ({ name, category: getEnvelopeCategory(plan, name) || 'Uncategorized' })),
+        Object.keys(categoryMap)
+      );
+    }, [plan, schema, allEnvelopeKeys, categoryMap]);
 
-  // Canvas context menu state
-  // const [canvasContextMenu, setCanvasContextMenu] = useState<{
-  //   visible: boolean;
-  //   x: number;
-  //   y: number;
-  // } | null>(null);
+    // Canvas context menu state
+    // const [canvasContextMenu, setCanvasContextMenu] = useState<{
+    //   visible: boolean;
+    //   x: number;
+    //   y: number;
+    // } | null>(null);
 
-  // Track if mouse was dragged during left click
-  const [leftClickStartPos, setLeftClickStartPos] = useState<{ x: number; y: number } | null>(null);
-  const [hasDraggedFromLeftClick, setHasDraggedFromLeftClick] = useState(false);
-  const [isClickingAnnotation, setIsClickingAnnotation] = useState(false);
+    // Track if mouse was dragged during left click
+    const [leftClickStartPos, setLeftClickStartPos] = useState<{ x: number; y: number } | null>(null);
+    const [hasDraggedFromLeftClick, setHasDraggedFromLeftClick] = useState(false);
+    const [isClickingAnnotation, setIsClickingAnnotation] = useState(false);
 
-  // Auto-close context menu after 3 seconds
-  // useEffect(() => {
-  //   if (canvasContextMenu) {
-  //     const timer = setTimeout(() => {
-  //       setCanvasContextMenu(null);
-  //     }, 3000);
+    // Auto-close context menu after 3 seconds
+    // useEffect(() => {
+    //   if (canvasContextMenu) {
+    //     const timer = setTimeout(() => {
+    //       setCanvasContextMenu(null);
+    //     }, 3000);
 
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [canvasContextMenu]);
+    //     return () => clearTimeout(timer);
+    //   }
+    // }, [canvasContextMenu]);
 
-  return (
-    <div className="relative w-full h-full visualization-container">
-      <Zoom
-        width={width}
-        height={height}
-        scaleXMin={1.0}
-        scaleXMax={1000}
-        scaleYMin={1.0}
-        scaleYMax={1000}
-        initialTransformMatrix={{
-          scaleX: 1.0,
-          scaleY: 1.0,
-          translateX: 80,
-          translateY: 0,
-          skewX: 0,
-          skewY: 0,
-        }}
-      >
-        {(zoom) => {
-          const getSVGPoint = (e: React.MouseEvent) => {
-            const svgPoint = svgRef.current!.createSVGPoint();
-            svgPoint.x = e.clientX;
-            svgPoint.y = e.clientY;
-            return svgPoint.matrixTransform(svgRef.current!.getScreenCTM()!.inverse());
-          };
+    return (
+      <div className="relative w-full h-full visualization-container">
+        <Zoom
+          width={width}
+          height={height}
+          scaleXMin={1.0}
+          scaleXMax={1000}
+          scaleYMin={1.0}
+          scaleYMax={1000}
+          initialTransformMatrix={{
+            scaleX: 1.0,
+            scaleY: 1.0,
+            translateX: 80,
+            translateY: 0,
+            skewX: 0,
+            skewY: 0,
+          }}
+        >
+          {(zoom) => {
+            const getSVGPoint = (e: React.MouseEvent) => {
+              const svgPoint = svgRef.current!.createSVGPoint();
+              svgPoint.x = e.clientX;
+              svgPoint.y = e.clientY;
+              return svgPoint.matrixTransform(svgRef.current!.getScreenCTM()!.inverse());
+            };
 
-          // Calculate global zoom level (now only depends on scaleX)
-          const globalZoom = zoom.transformMatrix.scaleX;
+            // Calculate global zoom level (now only depends on scaleX)
+            const globalZoom = zoom.transformMatrix.scaleX;
 
-          //console.log('🔍 globalZoom:', globalZoom, 'timeInterval:', timeInterval);
-          // Calculate visible date range based on current viewport with padding
-          const viewportPadding = width * 0.2; // 20% padding on each side
-          const visibleXDomain = [
-            xScale.invert((-zoom.transformMatrix.translateX - viewportPadding) / zoom.transformMatrix.scaleX),
-            xScale.invert((width - zoom.transformMatrix.translateX + viewportPadding) / zoom.transformMatrix.scaleX)
-          ];
+            //console.log('🔍 globalZoom:', globalZoom, 'timeInterval:', timeInterval);
+            // Calculate visible date range based on current viewport with padding
+            const viewportPadding = width * 0.2; // 20% padding on each side
+            const visibleXDomain = [
+              xScale.invert((-zoom.transformMatrix.translateX - viewportPadding) / zoom.transformMatrix.scaleX),
+              xScale.invert((width - zoom.transformMatrix.translateX + viewportPadding) / zoom.transformMatrix.scaleX)
+            ];
 
-          // Get actual visible range for simulator (this is where we have access to real zoom state)
-          const actualVisibleRange = getVisibleDateRange(zoom, xScale, width);
-          // Get actual visible range without padding for context registration
-          const actualVisibleRangeNoPadding = getActualVisibleDateRange(zoom, xScale, width);
-          // console.log('🔍 ACTUAL Visible Date Range (from zoom state):', {
-          //   start: actualVisibleRange.startDateFormatted,
-          //   end: actualVisibleRange.endDateFormatted,
-          //   days: actualVisibleRange.totalDays,
-          //   startDate: actualVisibleRange.startDate,
-          //   endDate: actualVisibleRange.endDate,
-          //   zoomLevel: globalZoom,
-          //   translateX: zoom.transformMatrix.translateX
-          // });
-
-          // Update current visible range for logging and register with context
-          useEffect(() => {
-            setCurrentVisibleRange({
-              startDate: actualVisibleRange.startDate,
-              endDate: actualVisibleRange.endDate,
-              startDateFormatted: actualVisibleRange.startDateFormatted,
-              endDateFormatted: actualVisibleRange.endDateFormatted,
-              totalDays: actualVisibleRange.totalDays
-            });
-            // console.log('🔍 Registering current range with context (no padding):', {
-            //   startDay: actualVisibleRangeNoPadding.startDate,
-            //   endDay: actualVisibleRangeNoPadding.endDate,
-            //   zoom: {
-            //     scaleX: zoom.transformMatrix.scaleX,
-            //     translateX: zoom.transformMatrix.translateX
-            //   }
+            // Get actual visible range for simulator (this is where we have access to real zoom state)
+            const actualVisibleRange = getVisibleDateRange(zoom, xScale, width);
+            // Get actual visible range without padding for context registration
+            const actualVisibleRangeNoPadding = getActualVisibleDateRange(zoom, xScale, width);
+            // console.log('🔍 ACTUAL Visible Date Range (from zoom state):', {
+            //   start: actualVisibleRange.startDateFormatted,
+            //   end: actualVisibleRange.endDateFormatted,
+            //   days: actualVisibleRange.totalDays,
+            //   startDate: actualVisibleRange.startDate,
+            //   endDate: actualVisibleRange.endDate,
+            //   zoomLevel: globalZoom,
+            //   translateX: zoom.transformMatrix.translateX
             // });
-            // Register current range with context for DateRangePicker to access (without padding)
-            registerCurrentVisualizationRange({
-              startDay: actualVisibleRangeNoPadding.startDate,
-              endDay: actualVisibleRangeNoPadding.endDate
-            });
 
-            // Mark visualization as ready for auto-save
-            setVisualizationReady(true);
-            // Tripline trigger: if either tripline falls within the current window, run simulation once
-            if (leftTripDateRef.current !== null || rightTripDateRef.current !== null) {
-              const winStart = actualVisibleRangeNoPadding.startDate;
-              const winEnd = actualVisibleRangeNoPadding.endDate;
-              const maxDay = 80 * 365;
-              const leftTrip = leftTripDateRef.current;
-              const rightTrip = rightTripDateRef.current;
-              const includesLeft = leftTrip !== null && winStart <= leftTrip && leftTrip <= winEnd && leftTrip !== 0;
-              const includesRight = rightTrip !== null && winStart <= rightTrip && rightTrip <= winEnd && rightTrip !== maxDay;
-              if (includesLeft || includesRight) {
-                const triggerKey = `${winStart}-${winEnd}`;
-                if (lastTripTriggerKeyRef.current !== triggerKey) {
-                  lastTripTriggerKeyRef.current = triggerKey;
-                  runSimulationManually(undefined, { startDate: winStart, endDate: winEnd });
-                }
-              }
-            }
-          }, [actualVisibleRange.startDate, actualVisibleRange.endDate, actualVisibleRange.startDateFormatted, actualVisibleRange.endDateFormatted, actualVisibleRange.totalDays, actualVisibleRangeNoPadding.startDate, actualVisibleRangeNoPadding.endDate, registerCurrentVisualizationRange, setVisualizationReady]);
-
-          // Filter data points to only those in viewport
-          const visibleData = netWorthData.filter(d =>
-            d.date >= visibleXDomain[0] && d.date <= visibleXDomain[1]
-          );
-          // Filter locked plan net worth data to visible x-range
-          const visibleLockedNetWorthData = lockedNetWorthData.filter(d =>
-            d.date >= visibleXDomain[0] && d.date <= visibleXDomain[1]
-          );
-
-          // Also compute actual visible data without padding for Y scale calculations
-          const actualVisibleData = netWorthData.filter(d =>
-            d.date >= actualVisibleRangeNoPadding.startDate && d.date <= actualVisibleRangeNoPadding.endDate
-          );
-          const actualVisibleLockedNetWorthData = lockedNetWorthData.filter(d =>
-            d.date >= actualVisibleRangeNoPadding.startDate && d.date <= actualVisibleRangeNoPadding.endDate
-          );
-
-          // Update time interval based on zoom level
-          useEffect(() => {
-            const newInterval = getTimeIntervalFromZoom(globalZoom);
-            if (newInterval !== timeInterval) {
-              //console.log('🎯 Time interval changed from', timeInterval, 'to', newInterval);
-
-              // Get the actual visible range without padding
-              const actualRange = getActualVisibleDateRange(zoom, xScale, width);
-
-              // Calculate the visible range with some padding to prevent edge effects
-              const paddedRange = {
-                startDate: Math.max(0, actualRange.startDate), // Add 1 year padding
-                endDate: Math.min(80 * 365, actualRange.endDate) // Add 1 year padding
-              };
-
-              // console.log('🎯 Running simulation with range:', {
-              //   interval: newInterval,
-              //   visibleRange: {
-              //     startDate: paddedRange.startDate,
-              //     endDate: paddedRange.endDate,
-              //     startFormatted: formatDate(paddedRange.startDate, birthDate, 'full', true, false),
-              //     endFormatted: formatDate(paddedRange.endDate, birthDate, 'full', true, false)
+            // Update current visible range for logging and register with context
+            useEffect(() => {
+              setCurrentVisibleRange({
+                startDate: actualVisibleRange.startDate,
+                endDate: actualVisibleRange.endDate,
+                startDateFormatted: actualVisibleRange.startDateFormatted,
+                endDateFormatted: actualVisibleRange.endDateFormatted,
+                totalDays: actualVisibleRange.totalDays
+              });
+              // console.log('🔍 Registering current range with context (no padding):', {
+              //   startDay: actualVisibleRangeNoPadding.startDate,
+              //   endDay: actualVisibleRangeNoPadding.endDate,
+              //   zoom: {
+              //     scaleX: zoom.transformMatrix.scaleX,
+              //     translateX: zoom.transformMatrix.translateX
               //   }
               // });
+              // Register current range with context for DateRangePicker to access (without padding)
+              registerCurrentVisualizationRange({
+                startDay: actualVisibleRangeNoPadding.startDate,
+                endDay: actualVisibleRangeNoPadding.endDate
+              });
 
-              // Run simulation with new interval and padded range
-              setIsIntervalChange(true);
-              runSimulationManually(newInterval, paddedRange);
+              // Mark visualization as ready for auto-save
+              setVisualizationReady(true);
+              // Tripline trigger: if either tripline falls within the current window, run simulation once
+              if (leftTripDateRef.current !== null || rightTripDateRef.current !== null) {
+                const winStart = actualVisibleRangeNoPadding.startDate;
+                const winEnd = actualVisibleRangeNoPadding.endDate;
+                const maxDay = 80 * 365;
+                const leftTrip = leftTripDateRef.current;
+                const rightTrip = rightTripDateRef.current;
+                const includesLeft = leftTrip !== null && winStart <= leftTrip && leftTrip <= winEnd && leftTrip !== 0;
+                const includesRight = rightTrip !== null && winStart <= rightTrip && rightTrip <= winEnd && rightTrip !== maxDay;
+                if (includesLeft || includesRight) {
+                  const triggerKey = `${winStart}-${winEnd}`;
+                  if (lastTripTriggerKeyRef.current !== triggerKey) {
+                    lastTripTriggerKeyRef.current = triggerKey;
+                    runSimulationManually(undefined, { startDate: winStart, endDate: winEnd });
+                  }
+                }
+              }
+            }, [actualVisibleRange.startDate, actualVisibleRange.endDate, actualVisibleRange.startDateFormatted, actualVisibleRange.endDateFormatted, actualVisibleRange.totalDays, actualVisibleRangeNoPadding.startDate, actualVisibleRangeNoPadding.endDate, registerCurrentVisualizationRange, setVisualizationReady]);
 
-              // Update state after simulation is triggered
-              setTimeInterval(newInterval);
+            // Filter data points to only those in viewport
+            const visibleData = netWorthData.filter(d =>
+              d.date >= visibleXDomain[0] && d.date <= visibleXDomain[1]
+            );
+            // Filter locked plan net worth data to visible x-range
+            const visibleLockedNetWorthData = lockedNetWorthData.filter(d =>
+              d.date >= visibleXDomain[0] && d.date <= visibleXDomain[1]
+            );
+
+            // Also compute actual visible data without padding for Y scale calculations
+            const actualVisibleData = netWorthData.filter(d =>
+              d.date >= actualVisibleRangeNoPadding.startDate && d.date <= actualVisibleRangeNoPadding.endDate
+            );
+            const actualVisibleLockedNetWorthData = lockedNetWorthData.filter(d =>
+              d.date >= actualVisibleRangeNoPadding.startDate && d.date <= actualVisibleRangeNoPadding.endDate
+            );
+
+            // Update time interval based on zoom level
+            useEffect(() => {
+              const newInterval = getTimeIntervalFromZoom(globalZoom);
+              if (newInterval !== timeInterval) {
+                //console.log('🎯 Time interval changed from', timeInterval, 'to', newInterval);
+
+                // Get the actual visible range without padding
+                const actualRange = getActualVisibleDateRange(zoom, xScale, width);
+
+                // Calculate the visible range with some padding to prevent edge effects
+                const paddedRange = {
+                  startDate: Math.max(0, actualRange.startDate), // Add 1 year padding
+                  endDate: Math.min(80 * 365, actualRange.endDate) // Add 1 year padding
+                };
+
+                // console.log('🎯 Running simulation with range:', {
+                //   interval: newInterval,
+                //   visibleRange: {
+                //     startDate: paddedRange.startDate,
+                //     endDate: paddedRange.endDate,
+                //     startFormatted: formatDate(paddedRange.startDate, birthDate, 'full', true, false),
+                //     endFormatted: formatDate(paddedRange.endDate, birthDate, 'full', true, false)
+                //   }
+                // });
+
+                // Run simulation with new interval and padded range
+                setIsIntervalChange(true);
+                runSimulationManually(newInterval, paddedRange);
+
+                // Update state after simulation is triggered
+                setTimeInterval(newInterval);
+              }
+            }, [globalZoom]);
+
+
+
+            // Get envelope colors from schema
+            const envelopeColors = useMemo(() => {
+              if (!schema?.categories) return {};
+              //console.log('schema.categories: ', schema.categories);
+              return generateEnvelopeColors(schema.categories);
+            }, [schema]);
+
+            const allEventsByDate = getAllEventsByDateWithLocked(plan!, plan_locked, schema || undefined, globalZoom);
+            // console.log('📅 Events by Date in Visualization:', {
+            //   totalDates: Object.keys(allEventsByDate).length,
+            //   allDates: Object.keys(allEventsByDate).map(date => ({
+            //     date: Number(date),
+            //     formattedDate: formatDate(Number(date), birthDate, 'full', true, false),
+            //     events: allEventsByDate[Number(date)].map(e => ({
+            //       eventId: e.event.id,
+            //       displayId: e.displayId,
+            //       isEndingEvent: e.isEndingEvent
+            //     }))
+            //   }))
+            // });
+
+            // Utility to apply a transform matrix to a point
+            function applyMatrixToPoint(matrix: any, point: { x: number; y: number }) {
+              return {
+                x: point.x * matrix.scaleX + matrix.translateX,
+                y: point.y * matrix.scaleY + matrix.translateY,
+              };
             }
-          }, [globalZoom]);
 
+            // Constrain transform to keep content within [0,0,width,height]
+            function constrainTransform(transformMatrix: any, prevTransformMatrix: any, width: number, height: number, isZooming?: boolean) {
+              const xPad = 80;
+              const min = applyMatrixToPoint(transformMatrix, { x: 0, y: 0 });
+              const max = applyMatrixToPoint(transformMatrix, { x: width, y: height });
 
+              // Allow zooming out even if temporarily out of bounds
+              if (isZooming && transformMatrix.scaleX < prevTransformMatrix.scaleX) {
+                // After zoom out, adjust position to be within bounds if needed
+                let adjustedTransform = { ...transformMatrix };
+                if (max.x < width - xPad) {
+                  adjustedTransform.translateX = width - xPad - (width * transformMatrix.scaleX);
+                }
+                if (min.x > xPad) {
+                  adjustedTransform.translateX = xPad;
+                }
+                return adjustedTransform;
+              }
 
-          // Get envelope colors from schema
-          const envelopeColors = useMemo(() => {
-            if (!schema?.categories) return {};
-            //console.log('schema.categories: ', schema.categories);
-            return generateEnvelopeColors(schema.categories);
-          }, [schema]);
+              if (max.x < width - xPad || min.x > 0 + xPad) {
+                return prevTransformMatrix;
+              }
+              return transformMatrix;
+            }
 
-          const allEventsByDate = getAllEventsByDateWithLocked(plan!, plan_locked, schema || undefined, globalZoom);
-          // console.log('📅 Events by Date in Visualization:', {
-          //   totalDates: Object.keys(allEventsByDate).length,
-          //   allDates: Object.keys(allEventsByDate).map(date => ({
-          //     date: Number(date),
-          //     formattedDate: formatDate(Number(date), birthDate, 'full', true, false),
-          //     events: allEventsByDate[Number(date)].map(e => ({
-          //       eventId: e.event.id,
-          //       displayId: e.displayId,
-          //       isEndingEvent: e.isEndingEvent
-          //     }))
-          //   }))
-          // });
+            const handleAnnotationDragStart = (e: React.MouseEvent, eventId: number, displayId: string, date: number, annotationYOffset: number, DRAG_Y_OFFSET: number, isEndingEvent: boolean) => {
+              e.stopPropagation();
+              const point = getSVGPoint(e);
+              setHasDragged(false);
+              setDragStartPos({ x: point.x, y: point.y });
 
-          // Utility to apply a transform matrix to a point
-          function applyMatrixToPoint(matrix: any, point: { x: number; y: number }) {
-            return {
-              x: point.x * matrix.scaleX + matrix.translateX,
-              y: point.y * matrix.scaleY + matrix.translateY,
+              const dataPoint = netWorthData.find(p => p.date === date);
+              if (!dataPoint) return;
+              // Use the same transform as annotation rendering
+              const canvasX = xScale(dataPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
+              const canvasY = visibleYScale(dataPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
+              // DRAG_Y_OFFSET and annotationYOffset must match rendering
+              const annotationY = canvasY - annotationYOffset;
+              const annotationX = canvasX;
+
+              // Log event info at drag start
+              let event = plan?.events.find(e => e.id === eventId);
+              if (!event) {
+                for (const parentEvent of plan?.events || []) {
+                  event = parentEvent.updating_events?.find(ue => ue.id === eventId);
+                  if (event) break;
+                }
+              }
+
+              setDraggingAnnotation({
+                index: date,
+                eventId: eventId,
+                displayId: displayId,
+                offsetX: point.x - annotationX,
+                offsetY: point.y - annotationY,
+                isEndingEvent: isEndingEvent
+              });
             };
-          }
 
-          // Constrain transform to keep content within [0,0,width,height]
-          function constrainTransform(transformMatrix: any, prevTransformMatrix: any, width: number, height: number, isZooming?: boolean) {
-            const xPad = 80;
-            const min = applyMatrixToPoint(transformMatrix, { x: 0, y: 0 });
-            const max = applyMatrixToPoint(transformMatrix, { x: width, y: height });
-
-            // Allow zooming out even if temporarily out of bounds
-            if (isZooming && transformMatrix.scaleX < prevTransformMatrix.scaleX) {
-              // After zoom out, adjust position to be within bounds if needed
-              let adjustedTransform = { ...transformMatrix };
-              if (max.x < width - xPad) {
-                adjustedTransform.translateX = width - xPad - (width * transformMatrix.scaleX);
+            const handleAnnotationDragMove = (e: React.MouseEvent) => {
+              if (!draggingAnnotation) return;
+              const point = getSVGPoint(e);
+              if (dragStartPos) {
+                const dx = point.x - dragStartPos.x;
+                const dy = point.y - dragStartPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance > 10) {
+                  setHasDragged(true);
+                }
               }
-              if (min.x > xPad) {
-                adjustedTransform.translateX = xPad;
+
+              const dataPoint = screenToData(point.x, point.y, zoom, visibleYScale);
+              const closestPoint = findClosestPoint(netWorthData, dataPoint.x);
+              if (!closestPoint) return;
+
+              // Convert data points to screen coordinates
+              const screenX = xScale(closestPoint.date);
+              const screenY = visibleYScale(closestPoint.value);
+              const transformedX = (screenX * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX;
+              const transformedY = (screenY * zoom.transformMatrix.scaleY) + zoom.transformMatrix.translateY;
+
+              // Calculate distance in screen coordinates
+              const distance = Math.sqrt(
+                Math.pow(point.x - transformedX, 2) +
+                Math.pow(point.y - transformedY, 2)
+              );
+
+              // Only update visual position if within threshold
+              if (distance < 150) {
+                setClosestPoint(closestPoint);
               }
-              return adjustedTransform;
-            }
+            };
 
-            if (max.x < width - xPad || min.x > 0 + xPad) {
-              return prevTransformMatrix;
-            }
-            return transformMatrix;
-          }
-
-          const handleAnnotationDragStart = (e: React.MouseEvent, eventId: number, displayId: string, date: number, annotationYOffset: number, DRAG_Y_OFFSET: number, isEndingEvent: boolean) => {
-            e.stopPropagation();
-            const point = getSVGPoint(e);
-            setHasDragged(false);
-            setDragStartPos({ x: point.x, y: point.y });
-
-            const dataPoint = netWorthData.find(p => p.date === date);
-            if (!dataPoint) return;
-            // Use the same transform as annotation rendering
-            const canvasX = xScale(dataPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
-            const canvasY = visibleYScale(dataPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
-            // DRAG_Y_OFFSET and annotationYOffset must match rendering
-            const annotationY = canvasY - annotationYOffset;
-            const annotationX = canvasX;
-
-            // Log event info at drag start
-            let event = plan?.events.find(e => e.id === eventId);
-            if (!event) {
-              for (const parentEvent of plan?.events || []) {
-                event = parentEvent.updating_events?.find(ue => ue.id === eventId);
-                if (event) break;
+            const handleAnnotationDragEnd = (e: React.MouseEvent) => {
+              if (!draggingAnnotation || !closestPoint) {
+                setDraggingAnnotation(null);
+                setClosestPoint(null);
+                return;
               }
-            }
 
-            setDraggingAnnotation({
-              index: date,
-              eventId: eventId,
-              displayId: displayId,
-              offsetX: point.x - annotationX,
-              offsetY: point.y - annotationY,
-              isEndingEvent: isEndingEvent
-            });
-          };
+              const point = getSVGPoint(e);
+              const dataPoint = screenToData(point.x, point.y, zoom, visibleYScale);
 
-          const handleAnnotationDragMove = (e: React.MouseEvent) => {
-            if (!draggingAnnotation) return;
-            const point = getSVGPoint(e);
-            if (dragStartPos) {
-              const dx = point.x - dragStartPos.x;
-              const dy = point.y - dragStartPos.y;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              if (distance > 10) {
-                setHasDragged(true);
-              }
-            }
+              // Calculate final position and distance
+              const screenX = xScale(closestPoint.date);
+              const screenY = visibleYScale(closestPoint.value);
+              const transformedX = (screenX * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX;
+              const transformedY = (screenY * zoom.transformMatrix.scaleY) + zoom.transformMatrix.translateY;
 
-            const dataPoint = screenToData(point.x, point.y, zoom, visibleYScale);
-            const closestPoint = findClosestPoint(netWorthData, dataPoint.x);
-            if (!closestPoint) return;
+              const distance = Math.sqrt(
+                Math.pow(point.x - transformedX, 2) +
+                Math.pow(point.y - transformedY, 2)
+              );
 
-            // Convert data points to screen coordinates
-            const screenX = xScale(closestPoint.date);
-            const screenY = visibleYScale(closestPoint.value);
-            const transformedX = (screenX * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX;
-            const transformedY = (screenY * zoom.transformMatrix.scaleY) + zoom.transformMatrix.translateY;
+              // Only update parameter if within threshold AND there was actual dragging
+              if (distance < 150 && plan && hasDragged) {
+                // console.log('🎯 Drag End Position:', {
+                //   mousePoint: point,
+                //   dataPoint,
+                //   closestPoint: {
+                //     date: closestPoint.date,
+                //     formattedDate: formatDate(closestPoint.date, birthDate, 'full', true, false)
+                //   },
+                //   screenCoords: { x: screenX, y: screenY },
+                //   transformedCoords: { x: transformedX, y: transformedY },
+                //   distance
+                // });
 
-            // Calculate distance in screen coordinates
-            const distance = Math.sqrt(
-              Math.pow(point.x - transformedX, 2) +
-              Math.pow(point.y - transformedY, 2)
-            );
-
-            // Only update visual position if within threshold
-            if (distance < 150) {
-              setClosestPoint(closestPoint);
-            }
-          };
-
-          const handleAnnotationDragEnd = (e: React.MouseEvent) => {
-            if (!draggingAnnotation || !closestPoint) {
-              setDraggingAnnotation(null);
-              setClosestPoint(null);
-              return;
-            }
-
-            const point = getSVGPoint(e);
-            const dataPoint = screenToData(point.x, point.y, zoom, visibleYScale);
-
-            // Calculate final position and distance
-            const screenX = xScale(closestPoint.date);
-            const screenY = visibleYScale(closestPoint.value);
-            const transformedX = (screenX * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX;
-            const transformedY = (screenY * zoom.transformMatrix.scaleY) + zoom.transformMatrix.translateY;
-
-            const distance = Math.sqrt(
-              Math.pow(point.x - transformedX, 2) +
-              Math.pow(point.y - transformedY, 2)
-            );
-
-            // Only update parameter if within threshold AND there was actual dragging
-            if (distance < 150 && plan && hasDragged) {
-              // console.log('🎯 Drag End Position:', {
-              //   mousePoint: point,
-              //   dataPoint,
-              //   closestPoint: {
-              //     date: closestPoint.date,
-              //     formattedDate: formatDate(closestPoint.date, birthDate, 'full', true, false)
-              //   },
-              //   screenCoords: { x: screenX, y: screenY },
-              //   transformedCoords: { x: transformedX, y: transformedY },
-              //   distance
-              // });
-
-              // Find the event in the plan
-              let event = plan.events.find(e => e.id === draggingAnnotation.eventId);
-              // console.log("🎯 Found Event:", {
-              //   event,
-              //   eventId: draggingAnnotation.eventId,
-              //   isEndingEvent: draggingAnnotation.isEndingEvent
-              // });
-              if (event) {
-                if (draggingAnnotation.isEndingEvent) {
-                  const endTimeParam = event.parameters.find(p => p.type === 'end_time');
-                  if (endTimeParam) {
-                    const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
-                    // console.log('🎯 Updating End Time:', {
-                    //   eventId: event.id,
-                    //   originalDays: closestPoint.date,
-                    //   convertedDateString: dateString,
-                    //   birthDate: plan.birth_date
-                    // });
-                    updateParameter(event.id, endTimeParam.type, dateString);
+                // Find the event in the plan
+                let event = plan.events.find(e => e.id === draggingAnnotation.eventId);
+                // console.log("🎯 Found Event:", {
+                //   event,
+                //   eventId: draggingAnnotation.eventId,
+                //   isEndingEvent: draggingAnnotation.isEndingEvent
+                // });
+                if (event) {
+                  if (draggingAnnotation.isEndingEvent) {
+                    const endTimeParam = event.parameters.find(p => p.type === 'end_time');
+                    if (endTimeParam) {
+                      const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
+                      // console.log('🎯 Updating End Time:', {
+                      //   eventId: event.id,
+                      //   originalDays: closestPoint.date,
+                      //   convertedDateString: dateString,
+                      //   birthDate: plan.birth_date
+                      // });
+                      updateParameter(event.id, endTimeParam.type, dateString);
+                    }
+                  } else {
+                    const startTimeParam = event.parameters.find(p => p.type === 'start_time');
+                    if (startTimeParam) {
+                      const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
+                      console.log('🎯 Updating Start Time:', {
+                        eventId: event.id,
+                        originalDays: closestPoint.date,
+                        convertedDateString: dateString,
+                        birthDate: plan.birth_date
+                      });
+                      updateParameter(event.id, startTimeParam.type, dateString);
+                    }
                   }
                 } else {
-                  const startTimeParam = event.parameters.find(p => p.type === 'start_time');
-                  if (startTimeParam) {
-                    const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
-                    console.log('🎯 Updating Start Time:', {
-                      eventId: event.id,
-                      originalDays: closestPoint.date,
-                      convertedDateString: dateString,
-                      birthDate: plan.birth_date
-                    });
-                    updateParameter(event.id, startTimeParam.type, dateString);
+                  // Try updating event
+                  for (const parentEvent of plan.events) {
+                    const updatingEvent = parentEvent.updating_events?.find(ue => ue.id === draggingAnnotation.eventId);
+                    if (updatingEvent) {
+                      if (draggingAnnotation.isEndingEvent) {
+                        const endTimeParam = updatingEvent.parameters.find(p => p.type === 'end_time');
+                        if (endTimeParam) {
+                          const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
+                          updateParameter(updatingEvent.id, endTimeParam.type, dateString);
+                        }
+                      } else {
+                        const startTimeParam = updatingEvent.parameters.find(p => p.type === 'start_time');
+                        if (startTimeParam) {
+                          const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
+                          updateParameter(updatingEvent.id, startTimeParam.type, dateString);
+                        }
+                      }
+                      break;
+                    }
                   }
                 }
-              } else {
-                // Try updating event
-                for (const parentEvent of plan.events) {
-                  const updatingEvent = parentEvent.updating_events?.find(ue => ue.id === draggingAnnotation.eventId);
-                  if (updatingEvent) {
-                    if (draggingAnnotation.isEndingEvent) {
-                      const endTimeParam = updatingEvent.parameters.find(p => p.type === 'end_time');
-                      if (endTimeParam) {
-                        const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
-                        updateParameter(updatingEvent.id, endTimeParam.type, dateString);
+              }
+
+              setDraggingAnnotation(null);
+              setClosestPoint(null);
+            };
+
+            // Calculate visibleYScale based on actual visible data (no padding)
+            const visibleYScale = useMemo(() => {
+              if (!actualVisibleData.length && !actualVisibleLockedNetWorthData.length) return scaleLinear({ domain: [0, 1], range: [height, 0] });
+              // Compute stacked sums for each data point
+              const stackedSums = actualVisibleData.map((d: any) => {
+                const values = [normalizeZero(d.value), ...Object.values(d.parts).map((v: any) => normalizeZero(v))];
+                const positiveSum = values.filter(v => v > 0).reduce((a, b) => a + b, 0);
+                const negativeSum = values.filter(v => v < 0).reduce((a, b) => a + b, 0);
+                return { positiveSum, negativeSum };
+              });
+              const lockedValues = actualVisibleLockedNetWorthData.map(d => normalizeZero(d.value));
+              const maxY = Math.max(0, ...stackedSums.map(s => s.positiveSum), ...lockedValues);
+              const minY = Math.min(0, ...stackedSums.map(s => s.negativeSum), ...lockedValues);
+              const adjustedMinY = minY > 0 ? 0 : minY;
+              // Add 10% padding to top and bottom
+              const yRange = maxY - adjustedMinY || 1;
+              const pad = yRange * 0.2;
+              const domainMin = adjustedMinY - pad;
+              const domainMax = maxY + pad;
+              return scaleLinear({
+                domain: [domainMin, domainMax],
+                range: [height, 0],
+              });
+            }, [actualVisibleData, actualVisibleLockedNetWorthData, height]);
+
+            // Find first day when net worth exceeds retirement goal
+            const firstDayAboveGoal = useMemo(() => {
+              if (!plan?.retirement_goal || plan.retirement_goal <= 0) return null;
+              return findFirstDayAboveGoal(netWorthData, plan.retirement_goal);
+            }, [netWorthData, plan?.retirement_goal]);
+
+            // Get the net worth and locked net worth values at the intersection day
+            const netWorthValues = useMemo(() => {
+              if (!firstDayAboveGoal) return null;
+              return getNetWorthAndLockedOnDay(netWorthData, lockedNetWorthData, firstDayAboveGoal);
+            }, [netWorthData, lockedNetWorthData, firstDayAboveGoal]);
+            const handleZoomToWindow = ({
+              years = 0,
+              months = 0,
+              days = 0,
+            }: { years?: number; months?: number; days?: number }) => {
+              const daysPerYear = 365;
+              const daysPerMonth = 30; // Approximate
+              const windowStart = currentDay;
+              const windowEnd =
+                currentDay +
+                (years * daysPerYear) +
+                (months * daysPerMonth) +
+                days;
+              const maxDate = Math.max(...netWorthData.map(d => d.date));
+              const clampedEnd = Math.min(windowEnd, maxDate);
+
+              const windowWidth = clampedEnd - windowStart;
+              if (windowWidth <= 0) return;
+
+              const targetScaleX = width / (xScale(clampedEnd) - xScale(windowStart));
+              const targetTranslateX = -xScale(windowStart) * targetScaleX + 80;
+
+              // Animate or immediately update based on IS_ANIMATION_ENABLED
+              animateZoom(
+                {
+                  scaleX: zoom.transformMatrix.scaleX,
+                  translateX: zoom.transformMatrix.translateX
+                },
+                {
+                  scaleX: targetScaleX,
+                  translateX: targetTranslateX
+                },
+                (state) => {
+                  zoom.setTransformMatrix({
+                    ...zoom.transformMatrix,
+                    ...state
+                  });
+                }
+              );
+            };
+
+            // Assign the function to the ref for external access
+            handleZoomToWindowRef.current = handleZoomToWindow;
+
+            // Method to set zoom to show a specific date range
+            const setZoomToDateRange = (startDay: number, endDay: number) => {
+              // console.log('🎯 Setting zoom to date range:', {
+              //   startDay,
+              //   endDay,
+              //   startDateFormatted: formatDate(startDay, birthDate, 'full', true, false),
+              //   endDateFormatted: formatDate(endDay, birthDate, 'full', true, false),
+              //   totalDays: endDay - startDay
+              // });
+
+              // Calculate the scale and translation to show this range
+              const rangeWidth = endDay - startDay;
+              if (rangeWidth <= 0) return;
+
+              const targetScaleX = width / (xScale(endDay) - xScale(startDay));
+              const targetTranslateX = -xScale(startDay) * targetScaleX;
+
+              // console.log('🎯 Calculated zoom parameters:', {
+              //   targetScaleX,
+              //   targetTranslateX,
+              //   xScaleStartDay: xScale(startDay),
+              //   xScaleEndDay: xScale(endDay),
+              //   xScaleRange: xScale(endDay) - xScale(startDay),
+              //   width
+              // });
+
+              // Animate or immediately update based on IS_ANIMATION_ENABLED
+              animateZoom(
+                {
+                  scaleX: zoom.transformMatrix.scaleX,
+                  translateX: zoom.transformMatrix.translateX
+                },
+                {
+                  scaleX: targetScaleX,
+                  translateX: targetTranslateX
+                },
+                (state) => {
+                  zoom.setTransformMatrix({
+                    ...zoom.transformMatrix,
+                    ...state
+                  });
+                }
+              );
+
+              // Log what the zoom will show after setting
+              setTimeout(() => {
+                const actualRange = getActualVisibleDateRange(zoom, xScale, width);
+                //console.log('🎯 Actual visible date range:', actualRange);
+              }, 50);
+            };
+
+            // Store the function in the ref for context access
+            setZoomToDateRangeRef.current = setZoomToDateRange;
+
+            return (
+              <>
+
+                {/* Zoom Buttons - Top Center */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 32,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 20,
+                    display: 'flex',
+                    gap: 8,
+                  }}
+                >
+                  {isOnboardingAtOrAbove('user_info') && (
+                    <button
+                      style={{
+                        background: 'rgba(51, 89, 102, 0.06)',
+                        color: '#335966',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                      onClick={() => {
+                        handleZoomToWindow({ months: 1 });
+                      }}
+                    >
+                      1m
+                    </button>
+                  )}
+                  {isOnboardingAtOrAbove('user_info') && (
+                    <button
+                      style={{
+                        background: 'rgba(51, 89, 102, 0.06)',
+                        color: '#335966',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                      onClick={() => {
+                        handleZoomToWindow({ months: 3 });
+                      }}
+                    >
+                      3m
+                    </button>
+                  )}
+                  {isOnboardingAtOrAbove('updating_events') && (
+                    <button
+                      style={{
+                        background: 'rgba(51, 89, 102, 0.06)',
+                        color: '#335966',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                      onClick={() => {
+                        handleZoomToWindow({ years: 1 });
+                      }}
+                    >
+                      1yr
+                    </button>
+                  )}
+                  {isOnboardingAtOrAbove('updating_events') && (
+                    <button
+                      style={{
+                        background: 'rgba(51, 89, 102, 0.06)',
+                        color: '#335966',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                      onClick={() => {
+                        handleZoomToWindow({ years: 5 });
+                      }}
+                    >
+                      5yr
+                    </button>
+                  )}
+                  {isOnboardingAtOrAbove('declare_accounts') && (
+                    <button
+                      style={{
+                        background: 'rgba(51, 89, 102, 0.06)',
+                        color: '#335966',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                      onClick={() => {
+                        handleZoomToWindow({ years: 10 });
+                      }}
+                    >
+                      10yr
+                    </button>
+                  )}
+                  {isOnboardingAtOrAbove('assets') && (
+                    <button
+                      style={{
+                        background: 'rgba(51, 89, 102, 0.06)',
+                        color: '#335966',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 6,
+                        padding: '4px 12px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        opacity: 0.85,
+                        transition: 'background 0.2s',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      }}
+                      onClick={() => {
+                        handleZoomToWindow({ years: 50 });
+                      }}
+                    >
+                      50yr
+                    </button>
+                  )}
+                </div>
+
+                <svg
+                  ref={svgRef}
+                  width={width}
+                  height={height}
+                  style={{
+                    cursor: isDragging ? 'grabbing' : 'pointer',
+                    touchAction: 'none'
+                  }}
+                  onMouseMove={(e) => {
+                    const point = getSVGPoint(e);
+                    setCursorPos(point);
+
+                    // Check if we're dragging from a left click
+                    if (leftClickStartPos && e.buttons === 1) {
+                      const distance = Math.sqrt(
+                        Math.pow(e.clientX - leftClickStartPos.x, 2) +
+                        Math.pow(e.clientY - leftClickStartPos.y, 2)
+                      );
+
+                      // If moved more than 5px, consider it dragging
+                      if (distance > 5) {
+                        setHasDraggedFromLeftClick(true);
                       }
+                    }
+
+                    if (draggingAnnotation) {
+                      handleAnnotationDragMove(e);
                     } else {
-                      const startTimeParam = updatingEvent.parameters.find(p => p.type === 'start_time');
-                      if (startTimeParam) {
-                        const dateString = daysSinceBirthToDateString(closestPoint.date, plan.birth_date);
-                        updateParameter(updatingEvent.id, startTimeParam.type, dateString);
+                      const dataPoint = screenToData(point.x, point.y, zoom, visibleYScale);
+                      const closest = findClosestPoint(netWorthData, dataPoint.x);
+                      setClosestPoint(closest);
+
+                      // Update tooltip position and data
+                      if (closest) {
+                        const canvasX = xScale(closest.date);
+                        const canvasY = visibleYScale(closest.value);
+                        const transformedX = (canvasX * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX;
+                        const transformedY = (canvasY * zoom.transformMatrix.scaleY) + zoom.transformMatrix.translateY;
+
+                        setTooltipData(closest);
+                        setTooltipLeft(transformedX);
+                        setTooltipTop(transformedY);
                       }
                     }
-                    break;
-                  }
-                }
-              }
-            }
 
-            setDraggingAnnotation(null);
-            setClosestPoint(null);
-          };
-
-          // Calculate visibleYScale based on actual visible data (no padding)
-          const visibleYScale = useMemo(() => {
-            if (!actualVisibleData.length && !actualVisibleLockedNetWorthData.length) return scaleLinear({ domain: [0, 1], range: [height, 0] });
-            // Compute stacked sums for each data point
-            const stackedSums = actualVisibleData.map((d: any) => {
-              const values = [normalizeZero(d.value), ...Object.values(d.parts).map((v: any) => normalizeZero(v))];
-              const positiveSum = values.filter(v => v > 0).reduce((a, b) => a + b, 0);
-              const negativeSum = values.filter(v => v < 0).reduce((a, b) => a + b, 0);
-              return { positiveSum, negativeSum };
-            });
-            const lockedValues = actualVisibleLockedNetWorthData.map(d => normalizeZero(d.value));
-            const maxY = Math.max(0, ...stackedSums.map(s => s.positiveSum), ...lockedValues);
-            const minY = Math.min(0, ...stackedSums.map(s => s.negativeSum), ...lockedValues);
-            const adjustedMinY = minY > 0 ? 0 : minY;
-            // Add 10% padding to top and bottom
-            const yRange = maxY - adjustedMinY || 1;
-            const pad = yRange * 0.2;
-            const domainMin = adjustedMinY - pad;
-            const domainMax = maxY + pad;
-            return scaleLinear({
-              domain: [domainMin, domainMax],
-              range: [height, 0],
-            });
-          }, [actualVisibleData, actualVisibleLockedNetWorthData, height]);
-
-          // Find first day when net worth exceeds retirement goal
-          const firstDayAboveGoal = useMemo(() => {
-            if (!plan?.retirement_goal || plan.retirement_goal <= 0) return null;
-            return findFirstDayAboveGoal(netWorthData, plan.retirement_goal);
-          }, [netWorthData, plan?.retirement_goal]);
-
-          // Get the net worth and locked net worth values at the intersection day
-          const netWorthValues = useMemo(() => {
-            if (!firstDayAboveGoal) return null;
-            return getNetWorthAndLockedOnDay(netWorthData, lockedNetWorthData, firstDayAboveGoal);
-          }, [netWorthData, lockedNetWorthData, firstDayAboveGoal]);
-          const handleZoomToWindow = ({
-            years = 0,
-            months = 0,
-            days = 0,
-          }: { years?: number; months?: number; days?: number }) => {
-            const daysPerYear = 365;
-            const daysPerMonth = 30; // Approximate
-            const windowStart = currentDay;
-            const windowEnd =
-              currentDay +
-              (years * daysPerYear) +
-              (months * daysPerMonth) +
-              days;
-            const maxDate = Math.max(...netWorthData.map(d => d.date));
-            const clampedEnd = Math.min(windowEnd, maxDate);
-
-            const windowWidth = clampedEnd - windowStart;
-            if (windowWidth <= 0) return;
-
-            const targetScaleX = width / (xScale(clampedEnd) - xScale(windowStart));
-            const targetTranslateX = -xScale(windowStart) * targetScaleX + 80;
-
-            // Animate or immediately update based on IS_ANIMATION_ENABLED
-            animateZoom(
-              {
-                scaleX: zoom.transformMatrix.scaleX,
-                translateX: zoom.transformMatrix.translateX
-              },
-              {
-                scaleX: targetScaleX,
-                translateX: targetTranslateX
-              },
-              (state) => {
-                zoom.setTransformMatrix({
-                  ...zoom.transformMatrix,
-                  ...state
-                });
-              }
-            );
-          };
-
-          // Assign the function to the ref for external access
-          handleZoomToWindowRef.current = handleZoomToWindow;
-
-          // Method to set zoom to show a specific date range
-          const setZoomToDateRange = (startDay: number, endDay: number) => {
-            // console.log('🎯 Setting zoom to date range:', {
-            //   startDay,
-            //   endDay,
-            //   startDateFormatted: formatDate(startDay, birthDate, 'full', true, false),
-            //   endDateFormatted: formatDate(endDay, birthDate, 'full', true, false),
-            //   totalDays: endDay - startDay
-            // });
-
-            // Calculate the scale and translation to show this range
-            const rangeWidth = endDay - startDay;
-            if (rangeWidth <= 0) return;
-
-            const targetScaleX = width / (xScale(endDay) - xScale(startDay));
-            const targetTranslateX = -xScale(startDay) * targetScaleX;
-
-            // console.log('🎯 Calculated zoom parameters:', {
-            //   targetScaleX,
-            //   targetTranslateX,
-            //   xScaleStartDay: xScale(startDay),
-            //   xScaleEndDay: xScale(endDay),
-            //   xScaleRange: xScale(endDay) - xScale(startDay),
-            //   width
-            // });
-
-            // Animate or immediately update based on IS_ANIMATION_ENABLED
-            animateZoom(
-              {
-                scaleX: zoom.transformMatrix.scaleX,
-                translateX: zoom.transformMatrix.translateX
-              },
-              {
-                scaleX: targetScaleX,
-                translateX: targetTranslateX
-              },
-              (state) => {
-                zoom.setTransformMatrix({
-                  ...zoom.transformMatrix,
-                  ...state
-                });
-              }
-            );
-
-            // Log what the zoom will show after setting
-            setTimeout(() => {
-              const actualRange = getActualVisibleDateRange(zoom, xScale, width);
-              //console.log('🎯 Actual visible date range:', actualRange);
-            }, 50);
-          };
-
-          // Store the function in the ref for context access
-          setZoomToDateRangeRef.current = setZoomToDateRange;
-
-          return (
-            <>
-
-              {/* Zoom Buttons - Top Center */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 32,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  zIndex: 20,
-                  display: 'flex',
-                  gap: 8,
-                }}
-              >
-                {isOnboardingAtOrAbove('user_info') && (
-                  <button
-                    style={{
-                      background: 'rgba(51, 89, 102, 0.06)',
-                      color: '#335966',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      opacity: 0.85,
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                    onClick={() => {
-                      handleZoomToWindow({ months: 1 });
-                    }}
-                  >
-                    1m
-                  </button>
-                )}
-                {isOnboardingAtOrAbove('user_info') && (
-                  <button
-                    style={{
-                      background: 'rgba(51, 89, 102, 0.06)',
-                      color: '#335966',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      opacity: 0.85,
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                    onClick={() => {
-                      handleZoomToWindow({ months: 3 });
-                    }}
-                  >
-                    3m
-                  </button>
-                )}
-                {isOnboardingAtOrAbove('updating_events') && (
-                  <button
-                    style={{
-                      background: 'rgba(51, 89, 102, 0.06)',
-                      color: '#335966',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      opacity: 0.85,
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                    onClick={() => {
-                      handleZoomToWindow({ years: 1 });
-                    }}
-                  >
-                    1yr
-                  </button>
-                )}
-                {isOnboardingAtOrAbove('updating_events') && (
-                  <button
-                    style={{
-                      background: 'rgba(51, 89, 102, 0.06)',
-                      color: '#335966',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      opacity: 0.85,
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                    onClick={() => {
-                      handleZoomToWindow({ years: 5 });
-                    }}
-                  >
-                    5yr
-                  </button>
-                )}
-                {isOnboardingAtOrAbove('declare_accounts') && (
-                  <button
-                    style={{
-                      background: 'rgba(51, 89, 102, 0.06)',
-                      color: '#335966',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      opacity: 0.85,
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                    onClick={() => {
-                      handleZoomToWindow({ years: 10 });
-                    }}
-                  >
-                    10yr
-                  </button>
-                )}
-                {isOnboardingAtOrAbove('assets') && (
-                  <button
-                    style={{
-                      background: 'rgba(51, 89, 102, 0.06)',
-                      color: '#335966',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 6,
-                      padding: '4px 12px',
-                      fontSize: 13,
-                      fontWeight: 500,
-                      opacity: 0.85,
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                    }}
-                    onClick={() => {
-                      handleZoomToWindow({ years: 50 });
-                    }}
-                  >
-                    50yr
-                  </button>
-                )}
-              </div>
-
-              <svg
-                ref={svgRef}
-                width={width}
-                height={height}
-                style={{
-                  cursor: isDragging ? 'grabbing' : 'pointer',
-                  touchAction: 'none'
-                }}
-                onMouseMove={(e) => {
-                  const point = getSVGPoint(e);
-                  setCursorPos(point);
-
-                  // Check if we're dragging from a left click
-                  if (leftClickStartPos && e.buttons === 1) {
-                    const distance = Math.sqrt(
-                      Math.pow(e.clientX - leftClickStartPos.x, 2) +
-                      Math.pow(e.clientY - leftClickStartPos.y, 2)
-                    );
-
-                    // If moved more than 5px, consider it dragging
-                    if (distance > 5) {
-                      setHasDraggedFromLeftClick(true);
+                    if (isDragging && lastMouse) {
+                      const dx = e.clientX - lastMouse.x;
+                      const dy = e.clientY - lastMouse.y;
+                      // Calculate new transform
+                      let newTransform = {
+                        ...zoom.transformMatrix,
+                        translateX: zoom.transformMatrix.translateX + dx,
+                        translateY: zoom.transformMatrix.translateY + dy,
+                      };
+                      // Clamp
+                      newTransform = constrainTransform(newTransform, zoom.transformMatrix, width, height, false);
+                      zoom.setTransformMatrix(newTransform);
+                      setLastMouse({ x: e.clientX, y: e.clientY });
                     }
-                  }
+                  }}
+                  onMouseLeave={() => {
+                    setCursorPos({ x: 0, y: 0 });
+                    setClosestPoint(null);
+                    setTooltipData(null);
+                    setHasDragged(false);
+                  }}
+                  onMouseDown={(e) => {
+                    // Open context menu on right click (button 2)
+                    // if (e.button === 2) {
+                    //   e.preventDefault();
+                    //   const rect = svgRef.current?.getBoundingClientRect();
+                    //   if (rect) {
+                    //     setCanvasContextMenu({
+                    //       visible: true,
+                    //       x: e.clientX - rect.left,
+                    //       y: e.clientY - rect.top
+                    //     });
+                    //   }
+                    //   return; // Don't start dragging on right click
+                    // }
 
-                  if (draggingAnnotation) {
-                    handleAnnotationDragMove(e);
-                  } else {
-                    const dataPoint = screenToData(point.x, point.y, zoom, visibleYScale);
-                    const closest = findClosestPoint(netWorthData, dataPoint.x);
-                    setClosestPoint(closest);
-
-                    // Update tooltip position and data
-                    if (closest) {
-                      const canvasX = xScale(closest.date);
-                      const canvasY = visibleYScale(closest.value);
-                      const transformedX = (canvasX * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX;
-                      const transformedY = (canvasY * zoom.transformMatrix.scaleY) + zoom.transformMatrix.translateY;
-
-                      setTooltipData(closest);
-                      setTooltipLeft(transformedX);
-                      setTooltipTop(transformedY);
+                    // Track left click start position
+                    if (e.button === 0) {
+                      setLeftClickStartPos({ x: e.clientX, y: e.clientY });
+                      setHasDraggedFromLeftClick(false);
                     }
-                  }
 
-                  if (isDragging && lastMouse) {
-                    const dx = e.clientX - lastMouse.x;
-                    const dy = e.clientY - lastMouse.y;
-                    // Calculate new transform
-                    let newTransform = {
-                      ...zoom.transformMatrix,
-                      translateX: zoom.transformMatrix.translateX + dx,
-                      translateY: zoom.transformMatrix.translateY + dy,
-                    };
-                    // Clamp
-                    newTransform = constrainTransform(newTransform, zoom.transformMatrix, width, height, false);
-                    zoom.setTransformMatrix(newTransform);
+                    setIsDragging(true);
+                    zoom.dragStart(e);
                     setLastMouse({ x: e.clientX, y: e.clientY });
-                  }
-                }}
-                onMouseLeave={() => {
-                  setCursorPos({ x: 0, y: 0 });
-                  setClosestPoint(null);
-                  setTooltipData(null);
-                  setHasDragged(false);
-                }}
-                onMouseDown={(e) => {
-                  // Open context menu on right click (button 2)
-                  // if (e.button === 2) {
+                  }}
+                  onClick={(e) => {
+                    // Close canvas context menu when clicking elsewhere
+                    // if (canvasContextMenu) {
+                    //   setCanvasContextMenu(null);
+                    // }
+                  }}
+                  onMouseUp={(e) => {
+                    if (draggingAnnotation) {
+                      handleAnnotationDragEnd(e);
+                    }
+
+                    // Only handle chart clicks if we're not clicking an annotation and haven't dragged
+                    if (
+                      e.button === 0 &&
+                      !interactionMgr.isClickSuppressed() &&
+                      !isClickingAnnotation &&
+                      !hasDraggedFromLeftClick &&
+                      closestPoint &&
+                      onChartClick
+                    ) {
+                      onChartClick(closestPoint.date);
+                    }
+
+                    // Clear any suppression after handling pointer up
+                    interactionMgr.clearSuppression();
+
+                    // Reset left click tracking
+                    setLeftClickStartPos(null);
+                    setHasDraggedFromLeftClick(false);
+
+                    setIsDragging(false);
+                    zoom.dragEnd();
+                  }}
+                  // onContextMenu={(e) => {
                   //   e.preventDefault();
                   //   const rect = svgRef.current?.getBoundingClientRect();
                   //   if (rect) {
@@ -1594,368 +1707,312 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                   //       y: e.clientY - rect.top
                   //     });
                   //   }
-                  //   return; // Don't start dragging on right click
                   // }
+                  onWheel={(e) => {
+                    const scaleFactor = e.deltaY > 0 ? 0.97 : 1.03;
 
-                  // Track left click start position
-                  if (e.button === 0) {
-                    setLeftClickStartPos({ x: e.clientX, y: e.clientY });
-                    setHasDraggedFromLeftClick(false);
-                  }
+                    // Get the center X position in screen coordinates
+                    const centerX = width / 2;
+                    const centerY = height / 2;
 
-                  setIsDragging(true);
-                  zoom.dragStart(e);
-                  setLastMouse({ x: e.clientX, y: e.clientY });
-                }}
-                onClick={(e) => {
-                  // Close canvas context menu when clicking elsewhere
-                  // if (canvasContextMenu) {
-                  //   setCanvasContextMenu(null);
-                  // }
-                }}
-                onMouseUp={(e) => {
-                  if (draggingAnnotation) {
-                    handleAnnotationDragEnd(e);
-                  }
+                    // Convert center X to data coordinates (before zoom)
+                    const centerXData = xScale.invert((centerX - zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX);
 
-                  // Only handle chart clicks if we're not clicking an annotation and haven't dragged
-                  if (
-                    e.button === 0 &&
-                    !interactionMgr.isClickSuppressed() &&
-                    !isClickingAnnotation &&
-                    !hasDraggedFromLeftClick &&
-                    closestPoint &&
-                    onChartClick
-                  ) {
-                    onChartClick(closestPoint.date);
-                  }
+                    // Only change scaleX, keep scaleY the same
+                    const newScaleX = zoom.transformMatrix.scaleX * scaleFactor;
+                    const newScaleY = zoom.transformMatrix.scaleY; // unchanged
 
-                  // Clear any suppression after handling pointer up
-                  interactionMgr.clearSuppression();
+                    // After zoom, the centerXData should remain at centerX
+                    // So, solve for new translateX:
+                    // centerX = xScale(centerXData) * newScaleX + translateX
+                    // => translateX = centerX - xScale(centerXData) * newScaleX
+                    const newTranslateX = centerX - xScale(centerXData) * newScaleX;
 
-                  // Reset left click tracking
-                  setLeftClickStartPos(null);
-                  setHasDraggedFromLeftClick(false);
-
-                  setIsDragging(false);
-                  zoom.dragEnd();
-                }}
-                // onContextMenu={(e) => {
-                //   e.preventDefault();
-                //   const rect = svgRef.current?.getBoundingClientRect();
-                //   if (rect) {
-                //     setCanvasContextMenu({
-                //       visible: true,
-                //       x: e.clientX - rect.left,
-                //       y: e.clientY - rect.top
-                //     });
-                //   }
-                // }
-                onWheel={(e) => {
-                  const scaleFactor = e.deltaY > 0 ? 0.97 : 1.03;
-
-                  // Get the center X position in screen coordinates
-                  const centerX = width / 2;
-                  const centerY = height / 2;
-
-                  // Convert center X to data coordinates (before zoom)
-                  const centerXData = xScale.invert((centerX - zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX);
-
-                  // Only change scaleX, keep scaleY the same
-                  const newScaleX = zoom.transformMatrix.scaleX * scaleFactor;
-                  const newScaleY = zoom.transformMatrix.scaleY; // unchanged
-
-                  // After zoom, the centerXData should remain at centerX
-                  // So, solve for new translateX:
-                  // centerX = xScale(centerXData) * newScaleX + translateX
-                  // => translateX = centerX - xScale(centerXData) * newScaleX
-                  const newTranslateX = centerX - xScale(centerXData) * newScaleX;
-
-                  // For Y: center the average of min and max stacked y values in the visible data
-                  let minY = Infinity;
-                  let maxY = -Infinity;
-                  visibleData.forEach(d => {
-                    Object.values(d.parts).forEach((v) => {
-                      minY = Math.min(minY, v);
-                      maxY = Math.max(maxY, v);
+                    // For Y: center the average of min and max stacked y values in the visible data
+                    let minY = Infinity;
+                    let maxY = -Infinity;
+                    visibleData.forEach(d => {
+                      Object.values(d.parts).forEach((v) => {
+                        minY = Math.min(minY, v);
+                        maxY = Math.max(maxY, v);
+                      });
+                      // Also consider the total value
+                      minY = Math.min(minY, d.value);
+                      maxY = Math.max(maxY, d.value);
                     });
-                    // Also consider the total value
-                    minY = Math.min(minY, d.value);
-                    maxY = Math.max(maxY, d.value);
-                  });
-                  // Fallback if no data
-                  if (!isFinite(minY) || !isFinite(maxY)) {
-                    minY = 0;
-                    maxY = 1;
-                  }
-                  const avgY = (minY + maxY) / 2;
-                  // Center this y value in the screen
-                  // y = visibleYScale(avgY) * scaleY + translateY = centerY
-                  // => translateY = centerY - visibleYScale(avgY) * scaleY
-                  const newTranslateY = centerY - visibleYScale(avgY) * newScaleY;
+                    // Fallback if no data
+                    if (!isFinite(minY) || !isFinite(maxY)) {
+                      minY = 0;
+                      maxY = 1;
+                    }
+                    const avgY = (minY + maxY) / 2;
+                    // Center this y value in the screen
+                    // y = visibleYScale(avgY) * scaleY + translateY = centerY
+                    // => translateY = centerY - visibleYScale(avgY) * scaleY
+                    const newTranslateY = centerY - visibleYScale(avgY) * newScaleY;
 
-                  // Save previous transform
-                  const prevTransform = { ...zoom.transformMatrix };
-                  // Create new transform matrix
-                  const newTransform = {
-                    ...zoom.transformMatrix,
-                    scaleX: newScaleX,
-                    scaleY: newScaleY,
-                    translateX: newTranslateX,
-                    translateY: newTranslateY,
-                  };
-                  // Constrain after zoom
-                  const constrained = constrainTransform(newTransform, prevTransform, width, height, true);
-                  zoom.setTransformMatrix(constrained);
-                }}
-              >
-                <defs>
-                  <LinearGradient id="area-gradient" from="#03c6fc" to="#FFFFFF" toOpacity={0.01} />
-                </defs>
+                    // Save previous transform
+                    const prevTransform = { ...zoom.transformMatrix };
+                    // Create new transform matrix
+                    const newTransform = {
+                      ...zoom.transformMatrix,
+                      scaleX: newScaleX,
+                      scaleY: newScaleY,
+                      translateX: newTranslateX,
+                      translateY: newTranslateY,
+                    };
+                    // Constrain after zoom
+                    const constrained = constrainTransform(newTransform, prevTransform, width, height, true);
+                    zoom.setTransformMatrix(constrained);
+                  }}
+                >
+                  <defs>
+                    <LinearGradient id="area-gradient" from="#03c6fc" to="#FFFFFF" toOpacity={0.01} />
+                  </defs>
 
-                <rect width={width} height={height} fill="#f7fafb" />
+                  <rect width={width} height={height} fill="#f7fafb" />
 
-                {/* Closest Point Vertical Line */}
-                {closestPoint && cursorPos && (
-                  <line
-                    x1={xScale(closestPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
-                    x2={xScale(closestPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
-                    y1={0}
-                    y2={height}
-                    stroke="#03c6fc"
-                    strokeWidth={2}
-                    strokeDasharray="4,4"
-                    opacity={1}
-                  />
-                )}
-
-                {/* Main content with zoom transform */}
-                <g transform={`translate(${zoom.transformMatrix.translateX},${zoom.transformMatrix.translateY}) scale(${zoom.transformMatrix.scaleX},${zoom.transformMatrix.scaleY})`}>
-                  {/* Add stacked areas */}
-                  {Object.keys(netWorthData[0]?.parts || {}).map((partKey) => {
-                    const category = getEnvelopeCategory(plan, partKey) || 'Uncategorized';
-                    const color = categoryColors[category] || { area: '#ccc', line: '#888' };
-                    const isDebt = category === 'Debt';
-                    return (
-                      <g key={`area-group-${partKey}`}>
-                        <AreaClosed
-                          data={stackedData}
-                          x={(d) => xScale(d.date)}
-                          y0={(d) => visibleYScale(d.stackedParts[partKey].y0)}
-                          y1={(d) => visibleYScale(d.stackedParts[partKey].y1)}
-                          yScale={visibleYScale}
-                          stroke="none"
-                          fill={color.area}
-                          fillOpacity={hoveredArea?.envelope === partKey ? 1 : 0.8 * animationProgress}
-                          curve={curveLinear}
-                          style={{
-                            clipPath: `polygon(0 0, ${animationProgress * 100}% 0, ${animationProgress * 100}% 100%, 0 100%)`
-                          }}
-                          onMouseMove={() => setHoveredArea({ envelope: partKey, category: getEnvelopeCategory(plan, partKey) || 'Uncategorized' })}
-                        />
-                      </g>
-                    );
-                  })}
-
-                  {/* Add top/bottom lines for each part */}
-                  {[...Object.keys(netWorthData[0]?.parts || {})].reverse().map((partKey) => {
-                    const category = getEnvelopeCategory(plan, partKey) || 'Uncategorized';
-                    const color = categoryColors[category] || { area: '#ccc', line: '#888' };
-                    const isDebt = category === 'Debt';
-
-                    return (
-                      <g key={`line-group-${partKey}`}>
-                        <LinePath
-                          data={stackedData}
-                          x={(d) => xScale(d.date)}
-                          y={(d) => visibleYScale(d.stackedParts[partKey].y1)}
-                          stroke={color.line}
-                          strokeWidth={1 / globalZoom}
-                          strokeOpacity={animationProgress}
-                          curve={curveLinear}
-                          style={{
-                            clipPath: `polygon(0 0, ${animationProgress * 100}% 0, ${animationProgress * 100}% 100%, 0 100%)`
-                          }}
-                        />
-                      </g>
-                    );
-                  })}
-
-                  {/* Render non-networth parts as separate lines (debugging) */}
-                  {DEBUG && Object.keys(netWorthData[0]?.nonNetworthParts || {}).map((partKey) => {
-                    const category = getEnvelopeCategory(plan, partKey) || 'Non-Networth';
-                    const color = categoryColors[category] || { area: '#ff6b6b', line: '#ff4757' };
-
-                    // Split data for this non-networth envelope part
-                    const { segments } = splitDataForMixedCurves(
-                      netWorthData,
-                      (d: any) => d.nonNetworthParts?.[partKey] || 0
-                    );
-
-                    return (
-                      <g key={`non-networth-line-group-${partKey}`}>
-                        {segments.map((segment, segIndex) => {
-                          const isTransitioning = segment.length === 2 &&
-                            isZeroTransition(
-                              segment[0].nonNetworthParts?.[partKey] || 0,
-                              segment[1].nonNetworthParts?.[partKey] || 0
-                            );
-
-                          return (
-                            <LinePath
-                              key={`non-networth-line-${partKey}-${segIndex}`}
-                              data={segment}
-                              x={(d: any) => xScale(d.date)}
-                              y={(d: any) => visibleYScale(d.nonNetworthParts?.[partKey] || 0)}
-                              stroke={color.line}
-                              strokeWidth={2 / globalZoom}
-                              strokeOpacity={0.7}
-                              strokeDasharray="5,3"
-                              curve={isTransitioning ? curveStepAfter : curveLinear}
-                            />
-                          );
-                        })}
-                      </g>
-                    );
-                  })}
-
-                  {/* Extended zero line: always from left to right edge of canvas */}
-                  <line
-                    x1={-width}
-                    x2={width * 2}
-                    y1={visibleYScale(0)}
-                    y2={visibleYScale(0)}
-                    strokeWidth={2}
-                    stroke="#4a5568" // darker gray for better visibility
-                    opacity={0.8}
-                    strokeDasharray={`${8 / globalZoom},${4 / globalZoom}`}
-                  />
-
-                  {/* Current day indicator line - more prominent and full height */}
-                  <line
-                    x1={xScale(currentDay)}
-                    x2={xScale(currentDay)}
-                    y1={0}
-                    y2={height * 2}
-                    stroke="#2d3748" // even darker gray for today's line
-                    strokeWidth={1 / globalZoom}
-                    opacity={0.9}
-                  />
-
-                  {/* Retirement Goal Line (solid, inside zoom group) */}
-                  {plan?.retirement_goal && plan.retirement_goal > 0 && (
+                  {/* Closest Point Vertical Line */}
+                  {closestPoint && cursorPos && (
                     <line
-                      x1={0}
-                      x2={width}
-                      y1={visibleYScale(plan.retirement_goal)}
-                      y2={visibleYScale(plan.retirement_goal)}
-                      stroke="#f59e42"
-                      strokeWidth={1.8}
-                      opacity={0.7}
+                      x1={xScale(closestPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
+                      x2={xScale(closestPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
+                      y1={0}
+                      y2={height}
+                      stroke="#03c6fc"
+                      strokeWidth={2}
+                      strokeDasharray="4,4"
+                      opacity={1}
                     />
                   )}
-                </g>
 
-                {/* Net Worth Line and Data Circles rendered outside the zoom <g> so their thickness and size are fixed */}
-                {/* Locked Plan Net Worth Line (light gray, overlay) */}
-                {/* Using visibleLockedNetWorthData which contains ${visibleLockedNetWorthData.length} points in current view */}
-                {lockedNetWorthData.length > 0 && isOnboardingAtOrAbove('assets') && isCompareMode && (
-                  <LinePath
-                    data={visibleLockedNetWorthData}
-                    x={d => xScale(d.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
-                    y={d => visibleYScale(d.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
-                    stroke="#d1d5db"
-                    strokeWidth={2}
-                    curve={curveLinear}
-                    strokeDasharray="4,2"
-                  />
-                )}
+                  {/* Main content with zoom transform */}
+                  <g transform={`translate(${zoom.transformMatrix.translateX},${zoom.transformMatrix.translateY}) scale(${zoom.transformMatrix.scaleX},${zoom.transformMatrix.scaleY})`}>
+                    {/* Add stacked areas */}
+                    {Object.keys(netWorthData[0]?.parts || {}).map((partKey) => {
+                      const category = getEnvelopeCategory(plan, partKey) || 'Uncategorized';
+                      const color = categoryColors[category] || { area: '#ccc', line: '#888' };
+                      const isDebt = category === 'Debt';
+                      return (
+                        <g key={`area-group-${partKey}`}>
+                          <AreaClosed
+                            data={stackedData}
+                            x={(d) => xScale(d.date)}
+                            y0={(d) => visibleYScale(d.stackedParts[partKey].y0)}
+                            y1={(d) => visibleYScale(d.stackedParts[partKey].y1)}
+                            yScale={visibleYScale}
+                            stroke="none"
+                            fill={color.area}
+                            fillOpacity={hoveredArea?.envelope === partKey ? 1 : 0.8 * animationProgress}
+                            curve={curveLinear}
+                            style={{
+                              clipPath: `polygon(0 0, ${animationProgress * 100}% 0, ${animationProgress * 100}% 100%, 0 100%)`
+                            }}
+                            onMouseMove={() => setHoveredArea({ envelope: partKey, category: getEnvelopeCategory(plan, partKey) || 'Uncategorized' })}
+                          />
+                        </g>
+                      );
+                    })}
 
-                {/* Main Net Worth Line */}
-                {/* Using visibleData which contains ${visibleData.length} points in current view */}
-                {/* Full dataset has ${netWorthData.length} points, filtering to visible range for performance */}
-                <g>
-                  <LinePath
-                    innerRef={node => {
-                      if (node) {
-                        const length = node.getTotalLength();
-                        if (length !== pathLength) {
-                          setPathLength(length);
+                    {/* Add top/bottom lines for each part */}
+                    {[...Object.keys(netWorthData[0]?.parts || {})].reverse().map((partKey) => {
+                      const category = getEnvelopeCategory(plan, partKey) || 'Uncategorized';
+                      const color = categoryColors[category] || { area: '#ccc', line: '#888' };
+                      const isDebt = category === 'Debt';
+
+                      return (
+                        <g key={`line-group-${partKey}`}>
+                          <LinePath
+                            data={stackedData}
+                            x={(d) => xScale(d.date)}
+                            y={(d) => visibleYScale(d.stackedParts[partKey].y1)}
+                            stroke={color.line}
+                            strokeWidth={1 / globalZoom}
+                            strokeOpacity={animationProgress}
+                            curve={curveLinear}
+                            style={{
+                              clipPath: `polygon(0 0, ${animationProgress * 100}% 0, ${animationProgress * 100}% 100%, 0 100%)`
+                            }}
+                          />
+                        </g>
+                      );
+                    })}
+
+                    {/* Render non-networth parts as separate lines (debugging) */}
+                    {DEBUG && Object.keys(netWorthData[0]?.nonNetworthParts || {}).map((partKey) => {
+                      const category = getEnvelopeCategory(plan, partKey) || 'Non-Networth';
+                      const color = categoryColors[category] || { area: '#ff6b6b', line: '#ff4757' };
+
+                      // Split data for this non-networth envelope part
+                      const { segments } = splitDataForMixedCurves(
+                        netWorthData,
+                        (d: any) => d.nonNetworthParts?.[partKey] || 0
+                      );
+
+                      return (
+                        <g key={`non-networth-line-group-${partKey}`}>
+                          {segments.map((segment, segIndex) => {
+                            const isTransitioning = segment.length === 2 &&
+                              isZeroTransition(
+                                segment[0].nonNetworthParts?.[partKey] || 0,
+                                segment[1].nonNetworthParts?.[partKey] || 0
+                              );
+
+                            return (
+                              <LinePath
+                                key={`non-networth-line-${partKey}-${segIndex}`}
+                                data={segment}
+                                x={(d: any) => xScale(d.date)}
+                                y={(d: any) => visibleYScale(d.nonNetworthParts?.[partKey] || 0)}
+                                stroke={color.line}
+                                strokeWidth={2 / globalZoom}
+                                strokeOpacity={0.7}
+                                strokeDasharray="5,3"
+                                curve={isTransitioning ? curveStepAfter : curveLinear}
+                              />
+                            );
+                          })}
+                        </g>
+                      );
+                    })}
+
+                    {/* Extended zero line: always from left to right edge of canvas */}
+                    <line
+                      x1={-width}
+                      x2={width * 2}
+                      y1={visibleYScale(0)}
+                      y2={visibleYScale(0)}
+                      strokeWidth={2}
+                      stroke="#4a5568" // darker gray for better visibility
+                      opacity={0.8}
+                      strokeDasharray={`${8 / globalZoom},${4 / globalZoom}`}
+                    />
+
+                    {/* Current day indicator line - more prominent and full height */}
+                    <line
+                      x1={xScale(currentDay)}
+                      x2={xScale(currentDay)}
+                      y1={0}
+                      y2={height * 2}
+                      stroke="#2d3748" // even darker gray for today's line
+                      strokeWidth={1 / globalZoom}
+                      opacity={0.9}
+                    />
+
+                    {/* Retirement Goal Line (solid, inside zoom group) */}
+                    {plan?.retirement_goal && plan.retirement_goal > 0 && (
+                      <line
+                        x1={0}
+                        x2={width}
+                        y1={visibleYScale(plan.retirement_goal)}
+                        y2={visibleYScale(plan.retirement_goal)}
+                        stroke="#f59e42"
+                        strokeWidth={1.8}
+                        opacity={0.7}
+                      />
+                    )}
+                  </g>
+
+                  {/* Net Worth Line and Data Circles rendered outside the zoom <g> so their thickness and size are fixed */}
+                  {/* Locked Plan Net Worth Line (light gray, overlay) */}
+                  {/* Using visibleLockedNetWorthData which contains ${visibleLockedNetWorthData.length} points in current view */}
+                  {lockedNetWorthData.length > 0 && isOnboardingAtOrAbove('assets') && isCompareMode && (
+                    <LinePath
+                      data={visibleLockedNetWorthData}
+                      x={d => xScale(d.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
+                      y={d => visibleYScale(d.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
+                      stroke="#d1d5db"
+                      strokeWidth={2}
+                      curve={curveLinear}
+                      strokeDasharray="4,2"
+                    />
+                  )}
+
+                  {/* Main Net Worth Line */}
+                  {/* Using visibleData which contains ${visibleData.length} points in current view */}
+                  {/* Full dataset has ${netWorthData.length} points, filtering to visible range for performance */}
+                  <g>
+                    <LinePath
+                      innerRef={node => {
+                        if (node) {
+                          const length = node.getTotalLength();
+                          if (length !== pathLength) {
+                            setPathLength(length);
+                          }
                         }
-                      }
-                    }}
-                    data={visibleData}
-                    x={d => xScale(d.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
-                    y={d => visibleYScale(d.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
-                    stroke="#335966"
-                    strokeWidth={baseLineWidth}
-                    curve={curveLinear}
-                    style={{
-                      strokeDasharray: `${pathLength}px`,
-                      strokeDashoffset: `${pathLength * (1 - animationProgress)}px`,
-                      transition: 'none'
-                    }}
-                  />
+                      }}
+                      data={visibleData}
+                      x={d => xScale(d.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX}
+                      y={d => visibleYScale(d.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
+                      stroke="#335966"
+                      strokeWidth={baseLineWidth}
+                      curve={curveLinear}
+                      style={{
+                        strokeDasharray: `${pathLength}px`,
+                        strokeDashoffset: `${pathLength * (1 - animationProgress)}px`,
+                        transition: 'none'
+                      }}
+                    />
 
-                  {/* Circles with animation */}
-                  {visibleData.map((point, index) => {
-                    const canvasX = xScale(point.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
-                    const canvasY = visibleYScale(point.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
-                    const isClosestPoint = closestPoint && point.date === closestPoint.date;
+                    {/* Circles with animation */}
+                    {visibleData.map((point, index) => {
+                      const canvasX = xScale(point.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
+                      const canvasY = visibleYScale(point.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
+                      const isClosestPoint = closestPoint && point.date === closestPoint.date;
 
-                    // Calculate if this point should be visible based on animation progress
-                    const pointProgress = index / (visibleData.length - 1);
-                    const isVisible = pointProgress <= animationProgress;
+                      // Calculate if this point should be visible based on animation progress
+                      const pointProgress = index / (visibleData.length - 1);
+                      const isVisible = pointProgress <= animationProgress;
+
+                      return (
+                        <circle
+                          key={`point-${index}`}
+                          cx={canvasX}
+                          cy={canvasY}
+                          r={basePointRadius}
+                          fill={isClosestPoint ? "#03c6fc" : "#335966"}
+                          stroke="#fff"
+                          strokeWidth={baseLineWidth}
+                          style={{
+                            opacity: isVisible ? 1 : 0,
+                            transition: 'opacity 0.1s ease-in'
+                          }}
+                        />
+                      );
+                    })}
+
+                  </g>
+
+                  {/* Comparison between locked and current net worth - rendered on top */}
+                  {closestPoint && lockedNetWorthData.length > 0 && (() => {
+                    // Find the corresponding locked net worth point
+                    const lockedPoint = lockedNetWorthData.find(d => d.date === closestPoint.date);
+                    if (!lockedPoint) return null;
+
+                    const currentX = xScale(closestPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
+                    const currentY = visibleYScale(closestPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
+                    const lockedX = xScale(lockedPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
+                    const lockedY = visibleYScale(lockedPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
+
+                    const difference = closestPoint.value - lockedPoint.value;
+
+                    // Only show if difference is greater than 0.01 (1 cent)
+                    if (Math.abs(difference) <= 0.01) return null;
 
                     return (
-                      <circle
-                        key={`point-${index}`}
-                        cx={canvasX}
-                        cy={canvasY}
-                        r={basePointRadius}
-                        fill={isClosestPoint ? "#03c6fc" : "#335966"}
-                        stroke="#fff"
-                        strokeWidth={baseLineWidth}
-                        style={{
-                          opacity: isVisible ? 1 : 0,
-                          transition: 'opacity 0.1s ease-in'
-                        }}
-                      />
-                    );
-                  })}
+                      <g style={{ pointerEvents: 'none' }}>
+                        {/* Circle on locked net worth line */}
+                        <circle
+                          cx={lockedX}
+                          cy={lockedY}
+                          r={basePointRadius}
+                          fill="#d1d5db"
+                          stroke="#fff"
+                          strokeWidth={baseLineWidth}
+                        />
 
-                </g>
-
-                {/* Comparison between locked and current net worth - rendered on top */}
-                {closestPoint && lockedNetWorthData.length > 0 && (() => {
-                  // Find the corresponding locked net worth point
-                  const lockedPoint = lockedNetWorthData.find(d => d.date === closestPoint.date);
-                  if (!lockedPoint) return null;
-
-                  const currentX = xScale(closestPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
-                  const currentY = visibleYScale(closestPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
-                  const lockedX = xScale(lockedPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
-                  const lockedY = visibleYScale(lockedPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
-
-                  const difference = closestPoint.value - lockedPoint.value;
-
-                  // Only show if difference is greater than 0.01 (1 cent)
-                  if (Math.abs(difference) <= 0.01) return null;
-
-                  return (
-                    <g style={{ pointerEvents: 'none' }}>
-                      {/* Circle on locked net worth line */}
-                      <circle
-                        cx={lockedX}
-                        cy={lockedY}
-                        r={basePointRadius}
-                        fill="#d1d5db"
-                        stroke="#fff"
-                        strokeWidth={baseLineWidth}
-                      />
-
-                      {/* Connecting line */}
-                      {/* <line
+                        {/* Connecting line */}
+                        {/* <line
                         x1={currentX}
                         y1={currentY}
                         x2={lockedX}
@@ -1965,8 +2022,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                         strokeDasharray="4,4"
                       /> */}
 
-                      {/* Difference label */}
-                      {/* <g transform={`translate(${(currentX + lockedX) / 2}, ${(currentY + lockedY) / 2 - 10})`}>
+                        {/* Difference label */}
+                        {/* <g transform={`translate(${(currentX + lockedX) / 2}, ${(currentY + lockedY) / 2 - 10})`}>
                         <rect
                           x={-40}
                           y={-12}
@@ -1989,293 +2046,293 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                           {difference >= 0 ? '+' : '-'}{formattedDiff}
                         </text>
                       </g> */}
-                    </g>
-                  );
-                })()}
+                      </g>
+                    );
+                  })()}
 
-                {/* Timeline Annotations (outside zoom transform) */}
-                {(() => {
-                  // Separate snapped maps for current and locked plan
-                  const snappedEventsMapCurrent: { [snappedDate: number]: Array<{ event: any, originalDate: number, isEndingEvent: boolean, displayId: string, iconSizePercent?: number, isRecurringInstance?: boolean, recurrenceIndex?: number, isUpdatingEvent?: boolean, parentEventId?: number }> } = {};
-                  const snappedEventsMapLocked: { [snappedDate: number]: Array<{ event: any, originalDate: number, isEndingEvent: boolean, displayId: string, iconSizePercent?: number, isRecurringInstance?: boolean, recurrenceIndex?: number, isUpdatingEvent?: boolean, parentEventId?: number }> } = {};
+                  {/* Timeline Annotations (outside zoom transform) */}
+                  {(() => {
+                    // Separate snapped maps for current and locked plan
+                    const snappedEventsMapCurrent: { [snappedDate: number]: Array<{ event: any, originalDate: number, isEndingEvent: boolean, displayId: string, iconSizePercent?: number, isRecurringInstance?: boolean, recurrenceIndex?: number, isUpdatingEvent?: boolean, parentEventId?: number }> } = {};
+                    const snappedEventsMapLocked: { [snappedDate: number]: Array<{ event: any, originalDate: number, isEndingEvent: boolean, displayId: string, iconSizePercent?: number, isRecurringInstance?: boolean, recurrenceIndex?: number, isUpdatingEvent?: boolean, parentEventId?: number }> } = {};
 
-                  const visibleOnscreenDateSetCurrent = new Set(visibleData.map(p => p.date));
-                  const visibleOnscreenDateSetLocked = new Set(visibleLockedNetWorthData.map(p => p.date));
+                    const visibleOnscreenDateSetCurrent = new Set(visibleData.map(p => p.date));
+                    const visibleOnscreenDateSetLocked = new Set(visibleLockedNetWorthData.map(p => p.date));
 
-                  const findClosestPoint = (points: { date: number, value: number }[], date: number) => {
-                    if (points.length === 0) return null;
-                    const future = points.filter(p => p.date >= date);
-                    if (future.length > 0) {
-                      return future.reduce((closest, current) => Math.abs(current.date - date) < Math.abs(closest.date - date) ? current : closest);
-                    }
-                    return points[points.length - 1];
-                  };
+                    const findClosestPoint = (points: { date: number, value: number }[], date: number) => {
+                      if (points.length === 0) return null;
+                      const future = points.filter(p => p.date >= date);
+                      if (future.length > 0) {
+                        return future.reduce((closest, current) => Math.abs(current.date - date) < Math.abs(closest.date - date) ? current : closest);
+                      }
+                      return points[points.length - 1];
+                    };
 
-                  for (const [dateStr, eventsAtDate] of Object.entries(allEventsByDate)) {
-                    const date = Number(dateStr);
-                    for (const eventEntry of eventsAtDate) {
-                      if (eventEntry.isShadowMode) {
-                        const closestLocked = findClosestPoint(lockedNetWorthData, date);
-                        if (!closestLocked) continue;
-                        if (!snappedEventsMapLocked[closestLocked.date]) snappedEventsMapLocked[closestLocked.date] = [];
-                        snappedEventsMapLocked[closestLocked.date].push({
-                          event: eventEntry.event,
-                          originalDate: date,
-                          isEndingEvent: eventEntry.isEndingEvent,
-                          displayId: eventEntry.displayId,
-                          iconSizePercent: (eventEntry as any).iconSizePercent,
-                          isRecurringInstance: (eventEntry as any).isRecurringInstance,
-                          recurrenceIndex: (eventEntry as any).recurrenceIndex,
-                          isUpdatingEvent: (eventEntry as any).isUpdatingEvent,
-                          parentEventId: (eventEntry as any).parentEventId,
-                        });
-                      } else {
-                        const closestCurrent = findClosestPoint(netWorthData, date);
-                        if (!closestCurrent) continue;
-                        if (!snappedEventsMapCurrent[closestCurrent.date]) snappedEventsMapCurrent[closestCurrent.date] = [];
-                        snappedEventsMapCurrent[closestCurrent.date].push({
-                          event: eventEntry.event,
-                          originalDate: date,
-                          isEndingEvent: eventEntry.isEndingEvent,
-                          displayId: eventEntry.displayId,
-                          iconSizePercent: (eventEntry as any).iconSizePercent,
-                          isRecurringInstance: (eventEntry as any).isRecurringInstance,
-                          recurrenceIndex: (eventEntry as any).recurrenceIndex,
-                          isUpdatingEvent: (eventEntry as any).isUpdatingEvent,
-                          parentEventId: (eventEntry as any).parentEventId,
-                        });
+                    for (const [dateStr, eventsAtDate] of Object.entries(allEventsByDate)) {
+                      const date = Number(dateStr);
+                      for (const eventEntry of eventsAtDate) {
+                        if (eventEntry.isShadowMode) {
+                          const closestLocked = findClosestPoint(lockedNetWorthData, date);
+                          if (!closestLocked) continue;
+                          if (!snappedEventsMapLocked[closestLocked.date]) snappedEventsMapLocked[closestLocked.date] = [];
+                          snappedEventsMapLocked[closestLocked.date].push({
+                            event: eventEntry.event,
+                            originalDate: date,
+                            isEndingEvent: eventEntry.isEndingEvent,
+                            displayId: eventEntry.displayId,
+                            iconSizePercent: (eventEntry as any).iconSizePercent,
+                            isRecurringInstance: (eventEntry as any).isRecurringInstance,
+                            recurrenceIndex: (eventEntry as any).recurrenceIndex,
+                            isUpdatingEvent: (eventEntry as any).isUpdatingEvent,
+                            parentEventId: (eventEntry as any).parentEventId,
+                          });
+                        } else {
+                          const closestCurrent = findClosestPoint(netWorthData, date);
+                          if (!closestCurrent) continue;
+                          if (!snappedEventsMapCurrent[closestCurrent.date]) snappedEventsMapCurrent[closestCurrent.date] = [];
+                          snappedEventsMapCurrent[closestCurrent.date].push({
+                            event: eventEntry.event,
+                            originalDate: date,
+                            isEndingEvent: eventEntry.isEndingEvent,
+                            displayId: eventEntry.displayId,
+                            iconSizePercent: (eventEntry as any).iconSizePercent,
+                            isRecurringInstance: (eventEntry as any).isRecurringInstance,
+                            recurrenceIndex: (eventEntry as any).recurrenceIndex,
+                            isUpdatingEvent: (eventEntry as any).isUpdatingEvent,
+                            parentEventId: (eventEntry as any).parentEventId,
+                          });
+                        }
                       }
                     }
-                  }
 
-                  const renderGroup = (entries: [string, Array<{ event: any, originalDate: number, isEndingEvent: boolean, displayId: string, iconSizePercent?: number, isRecurringInstance?: boolean, recurrenceIndex?: number, isUpdatingEvent?: boolean, parentEventId?: number }>][], useLocked: boolean) => {
-                    return entries.flatMap(([snappedDateStr, events]) => {
-                      const snappedDate = Number(snappedDateStr);
-                      const visibleSet = useLocked ? visibleOnscreenDateSetLocked : visibleOnscreenDateSetCurrent;
-                      if (!visibleSet.has(snappedDate)) return null;
-                      const dataArr = useLocked ? visibleLockedNetWorthData : visibleData;
-                      const closestDataPoint = dataArr.find(p => p.date === snappedDate);
-                      if (!closestDataPoint) return null;
-                      const canvasX = xScale(closestDataPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
-                      const canvasY = visibleYScale(closestDataPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
-                      // Precompute variable stacking offsets based on effective scales (icon size and zoom)
-                      const baseSize = 40;
-                      const gap = 10;
-                      const ZOOM_MIN_FOR_GROWTH = 1;      // start growing from this zoom
-                      const ZOOM_FULL_GROWTH = 300;        // icons reach near-full size around this zoom
-                      const computeZoomAmplify = (z: number) => {
-                        const t = Math.max(0, Math.min(1, (z - ZOOM_MIN_FOR_GROWTH) / (ZOOM_FULL_GROWTH - ZOOM_MIN_FOR_GROWTH)));
-                        // Exponential ease-out to approach 1 as t->1
-                        return 1 - Math.exp(-4 * t);
-                      };
-                      const zoomAmp = computeZoomAmplify(globalZoom);
-                      const effectiveScaleOf = (minScale: number) => minScale + (1 - minScale) * zoomAmp;
-                      const minScales = events.map(e => Math.max(0, (e.iconSizePercent ?? 100)) / 100);
-                      const effScales = minScales.map(ms => effectiveScaleOf(ms));
-                      const offsets = events.map((_, idx) => idx === 0 ? 0 : effScales.slice(0, idx).reduce((sum, s) => sum + (baseSize * s) + gap, 0));
+                    const renderGroup = (entries: [string, Array<{ event: any, originalDate: number, isEndingEvent: boolean, displayId: string, iconSizePercent?: number, isRecurringInstance?: boolean, recurrenceIndex?: number, isUpdatingEvent?: boolean, parentEventId?: number }>][], useLocked: boolean) => {
+                      return entries.flatMap(([snappedDateStr, events]) => {
+                        const snappedDate = Number(snappedDateStr);
+                        const visibleSet = useLocked ? visibleOnscreenDateSetLocked : visibleOnscreenDateSetCurrent;
+                        if (!visibleSet.has(snappedDate)) return null;
+                        const dataArr = useLocked ? visibleLockedNetWorthData : visibleData;
+                        const closestDataPoint = dataArr.find(p => p.date === snappedDate);
+                        if (!closestDataPoint) return null;
+                        const canvasX = xScale(closestDataPoint.date) * zoom.transformMatrix.scaleX + zoom.transformMatrix.translateX;
+                        const canvasY = visibleYScale(closestDataPoint.value) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY;
+                        // Precompute variable stacking offsets based on effective scales (icon size and zoom)
+                        const baseSize = 40;
+                        const gap = 10;
+                        const ZOOM_MIN_FOR_GROWTH = 1;      // start growing from this zoom
+                        const ZOOM_FULL_GROWTH = 300;        // icons reach near-full size around this zoom
+                        const computeZoomAmplify = (z: number) => {
+                          const t = Math.max(0, Math.min(1, (z - ZOOM_MIN_FOR_GROWTH) / (ZOOM_FULL_GROWTH - ZOOM_MIN_FOR_GROWTH)));
+                          // Exponential ease-out to approach 1 as t->1
+                          return 1 - Math.exp(-4 * t);
+                        };
+                        const zoomAmp = computeZoomAmplify(globalZoom);
+                        const effectiveScaleOf = (minScale: number) => minScale + (1 - minScale) * zoomAmp;
+                        const minScales = events.map(e => Math.max(0, (e.iconSizePercent ?? 100)) / 100);
+                        const effScales = minScales.map(ms => effectiveScaleOf(ms));
+                        const offsets = events.map((_, idx) => idx === 0 ? 0 : effScales.slice(0, idx).reduce((sum, s) => sum + (baseSize * s) + gap, 0));
 
-                      return events.map(({ event, isEndingEvent, displayId, iconSizePercent, isRecurringInstance, isUpdatingEvent, parentEventId }, i) => {
-                        const isDraggingMain = draggingAnnotation?.displayId === displayId;
-                        const yOffset = offsets[i];
-                        const DRAG_Y_OFFSET = 80;
-                        const minScale = Math.max(0, (iconSizePercent ?? 100)) / 100;
-                        const scale = effectiveScaleOf(minScale);
-                        const width = baseSize; // keep base viewport size; scale inner content
-                        const height = baseSize;
-                        const x = isDraggingMain
-                          ? cursorPos!.x - draggingAnnotation!.offsetX - 20
-                          : canvasX - 20;
-                        const y = isDraggingMain
-                          ? cursorPos!.y - draggingAnnotation!.offsetY - DRAG_Y_OFFSET
-                          : canvasY - DRAG_Y_OFFSET - yOffset;
-                        const xAdj = x - (baseSize * (scale - 1)) / 2;
-                        const yAdj = y - (baseSize * (scale - 1)) / 2 + 1 / scale * 10;
-                        const effectiveEventId = getEffectiveEventId(plan!, event.id);
-                        const effectiveHoveredId = hoveredEventId ? getEffectiveEventId(plan!, hoveredEventId) : null;
-                        const isHighlighted = useLocked ? false : (effectiveHoveredId === effectiveEventId);
+                        return events.map(({ event, isEndingEvent, displayId, iconSizePercent, isRecurringInstance, isUpdatingEvent, parentEventId }, i) => {
+                          const isDraggingMain = draggingAnnotation?.displayId === displayId;
+                          const yOffset = offsets[i];
+                          const DRAG_Y_OFFSET = 80;
+                          const minScale = Math.max(0, (iconSizePercent ?? 100)) / 100;
+                          const scale = effectiveScaleOf(minScale);
+                          const width = baseSize; // keep base viewport size; scale inner content
+                          const height = baseSize;
+                          const x = isDraggingMain
+                            ? cursorPos!.x - draggingAnnotation!.offsetX - 20
+                            : canvasX - 20;
+                          const y = isDraggingMain
+                            ? cursorPos!.y - draggingAnnotation!.offsetY - DRAG_Y_OFFSET
+                            : canvasY - DRAG_Y_OFFSET - yOffset;
+                          const xAdj = x - (baseSize * (scale - 1)) / 2;
+                          const yAdj = y - (baseSize * (scale - 1)) / 2 + 1 / scale * 10;
+                          const effectiveEventId = getEffectiveEventId(plan!, event.id);
+                          const effectiveHoveredId = hoveredEventId ? getEffectiveEventId(plan!, hoveredEventId) : null;
+                          const isHighlighted = useLocked ? false : (effectiveHoveredId === effectiveEventId);
 
-                        return (
-                          <foreignObject
-                            key={`annotation-${displayId}`}
-                            x={xAdj}
-                            y={yAdj}
-                            width={width}
-                            height={height}
-                            style={{
-                              overflow: 'visible',
-                              cursor: useLocked ? 'default' : (isRecurringInstance ? 'pointer' : (isDraggingMain ? 'grabbing' : 'move'))
-                            }}
-                            onMouseDown={useLocked || isRecurringInstance ? undefined : (e) => {
-                              const adjustedYOffset = yOffset + (baseSize * (scale - 1)) / 2;
-                              handleAnnotationDragStart(e, event.id, displayId, closestDataPoint.date, adjustedYOffset, DRAG_Y_OFFSET, isEndingEvent);
-                            }}
-                            onMouseEnter={useLocked ? undefined : () => {
-                              setHoveredEventId(event.id);
-                              setEventDescriptionTooltip({
-                                left: xAdj + baseSize * scale + 10,
-                                top: yAdj,
-                                displayType: event.title || getEventDisplayType(event.type),
-                                description: event.description || '',
-                              });
-                            }}
-                            onMouseLeave={useLocked ? undefined : () => {
-                              setHoveredEventId(null);
-                              setEventDescriptionTooltip(null);
-                            }}
-                          >
-                            {useLocked ? (
-                              <div style={{ width: baseSize, height: baseSize, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-                                <TimelineAnnotation
-                                  icon={getEventIcon(event.type, event)}
-                                  highlighted={isHighlighted}
-                                  isRecurring={event.is_recurring}
-                                  isEnding={isEndingEvent}
-                                  isShadowMode
-                                  isRecurringInstance={!!isRecurringInstance}
-                                />
-                              </div>
-                            ) : (
-                              <ContextMenu>
-                                <ContextMenuTrigger asChild>
-                                  <div
-                                    onContextMenu={() => {
-                                      // As soon as context menu opens, suppress subsequent click
-                                      interactionMgr.afterMenuAction();
-                                    }}
-                                  >
+                          return (
+                            <foreignObject
+                              key={`annotation-${displayId}`}
+                              x={xAdj}
+                              y={yAdj}
+                              width={width}
+                              height={height}
+                              style={{
+                                overflow: 'visible',
+                                cursor: useLocked ? 'default' : (isRecurringInstance ? 'pointer' : (isDraggingMain ? 'grabbing' : 'move'))
+                              }}
+                              onMouseDown={useLocked || isRecurringInstance ? undefined : (e) => {
+                                const adjustedYOffset = yOffset + (baseSize * (scale - 1)) / 2;
+                                handleAnnotationDragStart(e, event.id, displayId, closestDataPoint.date, adjustedYOffset, DRAG_Y_OFFSET, isEndingEvent);
+                              }}
+                              onMouseEnter={useLocked ? undefined : () => {
+                                setHoveredEventId(event.id);
+                                setEventDescriptionTooltip({
+                                  left: xAdj + baseSize * scale + 10,
+                                  top: yAdj,
+                                  displayType: event.title || getEventDisplayType(event.type),
+                                  description: event.description || '',
+                                });
+                              }}
+                              onMouseLeave={useLocked ? undefined : () => {
+                                setHoveredEventId(null);
+                                setEventDescriptionTooltip(null);
+                              }}
+                            >
+                              {useLocked ? (
+                                <div style={{ width: baseSize, height: baseSize, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+                                  <TimelineAnnotation
+                                    icon={getEventIcon(event.type, event)}
+                                    highlighted={isHighlighted}
+                                    isRecurring={event.is_recurring}
+                                    isEnding={isEndingEvent}
+                                    isShadowMode
+                                    isRecurringInstance={!!isRecurringInstance}
+                                  />
+                                </div>
+                              ) : (
+                                <ContextMenu>
+                                  <ContextMenuTrigger asChild>
                                     <div
-                                      style={{ width: baseSize, height: baseSize, transform: `scale(${scale})`, transformOrigin: 'top left' }}
-                                      onMouseDown={isRecurringInstance ? undefined : (e) => {
-                                        setIsClickingAnnotation(true);
-                                      }}
-                                      onMouseUp={(e) => {
-                                        if (!hasDragged && e.button === 0 && !interactionMgr.isClickSuppressed()) {
-                                          const clickTargetId = parentEventId ?? event.id;
-                                          onAnnotationClick?.(clickTargetId);
-                                        }
-                                        setHasDragged(false);
-                                        setTimeout(() => setIsClickingAnnotation(false), 100);
-                                        interactionMgr.clearSuppression();
-                                      }}
-                                    >
-                                      <TimelineAnnotation
-                                        icon={getEventIcon(event.type, event)}
-                                        highlighted={isHighlighted}
-                                        isRecurring={event.is_recurring}
-                                        isEnding={isEndingEvent}
-                                        isRecurringInstance={!!isRecurringInstance}
-                                      />
-                                    </div>
-                                  </div>
-                                </ContextMenuTrigger>
-                                <ContextMenuContent>
-                                  <ContextMenuItem asChild>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      className="w-full h-7 text-xs justify-start bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700"
-                                      onMouseDown={(e) => {
-                                        e.stopPropagation();
+                                      onContextMenu={() => {
+                                        // As soon as context menu opens, suppress subsequent click
                                         interactionMgr.afterMenuAction();
                                       }}
-                                      onMouseUp={(e) => {
-                                        e.stopPropagation();
-                                      }}
-                                      onClick={() => {
-                                        deleteEvent(event.id);
-                                        onAnnotationDelete?.(event.id);
-                                        setEventDescriptionTooltip(null);
-                                        setHoveredEventId(null);
-                                      }}
                                     >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete Event
-                                    </Button>
-                                  </ContextMenuItem>
-                                </ContextMenuContent>
-                              </ContextMenu>
-                            )}
-                          </foreignObject>
-                        );
+                                      <div
+                                        style={{ width: baseSize, height: baseSize, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+                                        onMouseDown={isRecurringInstance ? undefined : (e) => {
+                                          setIsClickingAnnotation(true);
+                                        }}
+                                        onMouseUp={(e) => {
+                                          if (!hasDragged && e.button === 0 && !interactionMgr.isClickSuppressed()) {
+                                            const clickTargetId = parentEventId ?? event.id;
+                                            onAnnotationClick?.(clickTargetId);
+                                          }
+                                          setHasDragged(false);
+                                          setTimeout(() => setIsClickingAnnotation(false), 100);
+                                          interactionMgr.clearSuppression();
+                                        }}
+                                      >
+                                        <TimelineAnnotation
+                                          icon={getEventIcon(event.type, event)}
+                                          highlighted={isHighlighted}
+                                          isRecurring={event.is_recurring}
+                                          isEnding={isEndingEvent}
+                                          isRecurringInstance={!!isRecurringInstance}
+                                        />
+                                      </div>
+                                    </div>
+                                  </ContextMenuTrigger>
+                                  <ContextMenuContent>
+                                    <ContextMenuItem asChild>
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        className="w-full h-7 text-xs justify-start bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700"
+                                        onMouseDown={(e) => {
+                                          e.stopPropagation();
+                                          interactionMgr.afterMenuAction();
+                                        }}
+                                        onMouseUp={(e) => {
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={() => {
+                                          deleteEvent(event.id);
+                                          onAnnotationDelete?.(event.id);
+                                          setEventDescriptionTooltip(null);
+                                          setHoveredEventId(null);
+                                        }}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete Event
+                                      </Button>
+                                    </ContextMenuItem>
+                                  </ContextMenuContent>
+                                </ContextMenu>
+                              )}
+                            </foreignObject>
+                          );
+                        });
                       });
-                    });
-                  };
+                    };
 
-                  const renderedCurrent = renderGroup(Object.entries(snappedEventsMapCurrent), false);
-                  const renderedLocked = renderGroup(Object.entries(snappedEventsMapLocked), true);
-                  return (
-                    <>
-                      {isCompareMode && renderedLocked}
-                      {renderedCurrent}
-                    </>
-                  );
-                })()}
-
-
-
-                {/* Axes with visible domain */}
-                {
-                  (() => {
-                    const visibleXDomain = [
-                      xScale.invert((-zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX),
-                      xScale.invert((width - zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX)
-                    ];
-                    const visibleYDomain: [number, number] = [
-                      visibleYScale.invert((height - zoom.transformMatrix.translateY) / zoom.transformMatrix.scaleY),
-                      visibleYScale.invert((-zoom.transformMatrix.translateY) / zoom.transformMatrix.scaleY)
-                    ];
-
-                    const visibleXScale = scaleLinear({
-                      domain: visibleXDomain,
-                      range: [0, width], // I dont think range this does anything
-                    });
-
-                    const visibleYScaleForAxis = scaleLinear({
-                      domain: visibleYDomain,
-                      range: [height, 0],
-                    });
-
+                    const renderedCurrent = renderGroup(Object.entries(snappedEventsMapCurrent), false);
+                    const renderedLocked = renderGroup(Object.entries(snappedEventsMapLocked), true);
                     return (
                       <>
-                        <AxisLeft
-                          scale={visibleYScaleForAxis}
-                          stroke="#bbd4dd"
-                          tickStroke="#bbd4dd"
-                          tickFormat={(value) => formatNumber(value)}
-                          tickLabelProps={() => ({
-                            fill: '#335966',
-                            fontSize: 12,
-                            textAnchor: 'end',
-                            dy: '0.33em',
-                          })}
-                          left={60}
-                        />
-
-                        <AxisBottom
-                          top={height - 40}
-                          scale={visibleXScale}
-                          stroke="#bbd4dd"
-                          tickStroke="#bbd4dd"
-                          tickFormat={(value) => formatDate(value.valueOf(), birthDate, timeInterval, true, false) as string}
-                          tickComponent={({ x, y, formattedValue }) => (
-                            <AxisBottomTick
-                              x={x}
-                              y={y}
-                              formattedValue={formattedValue as string}
-                            />
-                          )}
-                          left={0}
-                        />
+                        {isCompareMode && renderedLocked}
+                        {renderedCurrent}
                       </>
                     );
-                  })()
-                }
+                  })()}
 
-                {/* Net worth values at intersection day (right side with tick marks) */}
-                {firstDayAboveGoal && netWorthValues && (
-                  <>
-                    {/* Tick mark for net worth value */}
-                    {/* <line
+
+
+                  {/* Axes with visible domain */}
+                  {
+                    (() => {
+                      const visibleXDomain = [
+                        xScale.invert((-zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX),
+                        xScale.invert((width - zoom.transformMatrix.translateX) / zoom.transformMatrix.scaleX)
+                      ];
+                      const visibleYDomain: [number, number] = [
+                        visibleYScale.invert((height - zoom.transformMatrix.translateY) / zoom.transformMatrix.scaleY),
+                        visibleYScale.invert((-zoom.transformMatrix.translateY) / zoom.transformMatrix.scaleY)
+                      ];
+
+                      const visibleXScale = scaleLinear({
+                        domain: visibleXDomain,
+                        range: [0, width], // I dont think range this does anything
+                      });
+
+                      const visibleYScaleForAxis = scaleLinear({
+                        domain: visibleYDomain,
+                        range: [height, 0],
+                      });
+
+                      return (
+                        <>
+                          <AxisLeft
+                            scale={visibleYScaleForAxis}
+                            stroke="#bbd4dd"
+                            tickStroke="#bbd4dd"
+                            tickFormat={(value) => formatNumber(value)}
+                            tickLabelProps={() => ({
+                              fill: '#335966',
+                              fontSize: 12,
+                              textAnchor: 'end',
+                              dy: '0.33em',
+                            })}
+                            left={60}
+                          />
+
+                          <AxisBottom
+                            top={height - 40}
+                            scale={visibleXScale}
+                            stroke="#bbd4dd"
+                            tickStroke="#bbd4dd"
+                            tickFormat={(value) => formatDate(value.valueOf(), birthDate, timeInterval, true, false) as string}
+                            tickComponent={({ x, y, formattedValue }) => (
+                              <AxisBottomTick
+                                x={x}
+                                y={y}
+                                formattedValue={formattedValue as string}
+                              />
+                            )}
+                            left={0}
+                          />
+                        </>
+                      );
+                    })()
+                  }
+
+                  {/* Net worth values at intersection day (right side with tick marks) */}
+                  {firstDayAboveGoal && netWorthValues && (
+                    <>
+                      {/* Tick mark for net worth value */}
+                      {/* <line
                       x1={width - 60}
                       x2={width - 40}
                       y1={visibleYScale(netWorthValues.netWorth) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
@@ -2284,8 +2341,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                       strokeWidth={2}
                     /> */}
 
-                    {/* Tick mark for locked net worth value */}
-                    {/* <line
+                      {/* Tick mark for locked net worth value */}
+                      {/* <line
                       x1={width - 60}
                       x2={width - 40}
                       y1={visibleYScale(netWorthValues.lockedNetWorth) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
@@ -2294,8 +2351,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                       strokeWidth={2}
                     /> */}
 
-                    {/* Horizontal line connecting the two tick marks */}
-                    {/* <line
+                      {/* Horizontal line connecting the two tick marks */}
+                      {/* <line
                       x1={width - 50}
                       x2={width - 50}
                       y1={visibleYScale(netWorthValues.lockedNetWorth) * zoom.transformMatrix.scaleY + zoom.transformMatrix.translateY}
@@ -2304,99 +2361,99 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                       strokeWidth={1}
                       strokeDasharray="2,2"
                     /> */}
-                  </>
+                    </>
+                  )}
+                </svg>
+                {netWorthData.length > 0 && isOnboardingAtOrAbove('declare_accounts') && (
+                  <Legend
+                    envelopes={Object.keys(netWorthData[0].parts)}
+                    envelopeColors={envelopeColors}
+                    currentValues={closestPoint ? closestPoint.parts : netWorthData[netWorthData.length - 1].parts}
+                    getCategory={(envelope) => getEnvelopeCategory(plan, envelope)}
+                    categoryColors={categoryColors}
+                    nonNetworthEnvelopes={DEBUG ? Object.keys(netWorthData[0].nonNetworthParts || {}) : undefined}
+                    nonNetworthCurrentValues={DEBUG ? (closestPoint ? closestPoint.nonNetworthParts : netWorthData[netWorthData.length - 1].nonNetworthParts) : undefined}
+                    lockedNetWorthValue={isCompareMode && closestPoint && lockedNetWorthData.length > 0 ?
+                      lockedNetWorthData.find(d => d.date === closestPoint.date)?.value : undefined}
+                    hoveredArea={hoveredArea}
+                    isOnboardingAtOrAbove={isOnboardingAtOrAbove}
+                  />
                 )}
-              </svg>
-              {netWorthData.length > 0 && isOnboardingAtOrAbove('declare_accounts') && (
-                <Legend
-                  envelopes={Object.keys(netWorthData[0].parts)}
-                  envelopeColors={envelopeColors}
-                  currentValues={closestPoint ? closestPoint.parts : netWorthData[netWorthData.length - 1].parts}
-                  getCategory={(envelope) => getEnvelopeCategory(plan, envelope)}
-                  categoryColors={categoryColors}
-                  nonNetworthEnvelopes={DEBUG ? Object.keys(netWorthData[0].nonNetworthParts || {}) : undefined}
-                  nonNetworthCurrentValues={DEBUG ? (closestPoint ? closestPoint.nonNetworthParts : netWorthData[netWorthData.length - 1].nonNetworthParts) : undefined}
-                  lockedNetWorthValue={isCompareMode && closestPoint && lockedNetWorthData.length > 0 ?
-                    lockedNetWorthData.find(d => d.date === closestPoint.date)?.value : undefined}
-                  hoveredArea={hoveredArea}
-                  isOnboardingAtOrAbove={isOnboardingAtOrAbove}
-                />
-              )}
 
-              {tooltipData && (
-                <TooltipWithBounds
-                  key={Math.random()}
-                  left={tooltipLeft}
-                  top={tooltipTop - 40}
-                  style={{
-                    ...defaultStyles,
-                    background: 'white',
-                    border: '1px solid #335966',
-                    color: '#335966',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <div style={{ fontSize: '12px' }}>
-                    <div>{formatNumber({ valueOf: () => normalizeZero(tooltipData.value) })}</div>
-                    {/* {Object.entries(tooltipData.parts).map(([key, value]) => (
+                {tooltipData && (
+                  <TooltipWithBounds
+                    key={Math.random()}
+                    left={tooltipLeft}
+                    top={tooltipTop - 40}
+                    style={{
+                      ...defaultStyles,
+                      background: 'white',
+                      border: '1px solid #335966',
+                      color: '#335966',
+                      padding: '8px',
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    }}
+                  >
+                    <div style={{ fontSize: '12px' }}>
+                      <div>{formatNumber({ valueOf: () => normalizeZero(tooltipData.value) })}</div>
+                      {/* {Object.entries(tooltipData.parts).map(([key, value]) => (
                       <div key={key} style={{ color: partColors[key] }}>
                         {key}: {formatNumber({ valueOf: () => value })}
                       </div>
                     ))} */}
+                    </div>
+                  </TooltipWithBounds>
+                )}
+
+                {/* Bottom axis tooltip for vertical blue line (closestPoint) */}
+                {closestPoint && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: (xScale(closestPoint.date) * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX,
+                      bottom: 24, // just above the x axis
+                      transform: 'translateX(-50%)',
+                      background: 'white',
+                      border: '1px solid #03c6fc',
+                      color: '#03c6fc',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      pointerEvents: 'none',
+                      zIndex: 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+                    }}
+                  >
+                    {formatDate(closestPoint.date, birthDate, 'full', true, true)}
                   </div>
-                </TooltipWithBounds>
-              )}
+                )}
 
-              {/* Bottom axis tooltip for vertical blue line (closestPoint) */}
-              {closestPoint && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: (xScale(closestPoint.date) * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX,
-                    bottom: 24, // just above the x axis
-                    transform: 'translateX(-50%)',
-                    background: 'white',
-                    border: '1px solid #03c6fc',
-                    color: '#03c6fc',
-                    padding: '4px 10px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    pointerEvents: 'none',
-                    zIndex: 10,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
-                  }}
-                >
-                  {formatDate(closestPoint.date, birthDate, 'full', true, true)}
-                </div>
-              )}
+                {/* Bottom axis tooltip for current day indicator line (more prominent) */}
+                {typeof currentDay === 'number' && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: (xScale(currentDay) * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX,
+                      bottom: 24, // just above the x axis
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(255,255,255,0.85)',
+                      border: '1px solid #2d3748',
+                      color: '#6b7280',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      pointerEvents: 'none',
+                      zIndex: 9,
+                      boxShadow: '0 3px 6px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {formatDate(currentDay, birthDate, 'full', true, true)}
+                  </div>
+                )}
 
-              {/* Bottom axis tooltip for current day indicator line (more prominent) */}
-              {typeof currentDay === 'number' && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: (xScale(currentDay) * zoom.transformMatrix.scaleX) + zoom.transformMatrix.translateX,
-                    bottom: 24, // just above the x axis
-                    transform: 'translateX(-50%)',
-                    background: 'rgba(255,255,255,0.85)',
-                    border: '1px solid #2d3748',
-                    color: '#6b7280',
-                    padding: '4px 10px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    pointerEvents: 'none',
-                    zIndex: 9,
-                    boxShadow: '0 3px 6px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  {formatDate(currentDay, birthDate, 'full', true, true)}
-                </div>
-              )}
-
-              {/* Tool tip for the first day above goal lined in yellow goal like retirment line for now  only boarder gold color*/}
-              {/* {firstDayAboveGoal && (
+                {/* Tool tip for the first day above goal lined in yellow goal like retirment line for now  only boarder gold color*/}
+                {/* {firstDayAboveGoal && (
                 <div
                   style={{
                     position: 'absolute',
@@ -2418,8 +2475,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                 </div>
               )} */}
 
-              {/* Difference label in the middle of the connecting line */}
-              {/* {firstDayAboveGoal && netWorthValues && (
+                {/* Difference label in the middle of the connecting line */}
+                {/* {firstDayAboveGoal && netWorthValues && (
                 <div
                   style={{
                     position: 'absolute',
@@ -2441,32 +2498,32 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                 </div>
               )} */}
 
-              {/* Event Description Tooltip (on-canvas) */}
-              {eventDescriptionTooltip && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: eventDescriptionTooltip.left,
-                    top: eventDescriptionTooltip.top,
-                    background: 'white',
-                    color: '#335966',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    pointerEvents: 'none',
-                    zIndex: 100,
-                    maxWidth: 240,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                    border: '2px solid #d1d5db', // gray-300
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{eventDescriptionTooltip.displayType}</div>
-                  <div style={{ fontSize: 13 }}>{eventDescriptionTooltip.description}</div>
-                </div>
-              )}
+                {/* Event Description Tooltip (on-canvas) */}
+                {eventDescriptionTooltip && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: eventDescriptionTooltip.left,
+                      top: eventDescriptionTooltip.top,
+                      background: 'white',
+                      color: '#335966',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      pointerEvents: 'none',
+                      zIndex: 100,
+                      maxWidth: 240,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                      border: '2px solid #d1d5db', // gray-300
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{eventDescriptionTooltip.displayType}</div>
+                    <div style={{ fontSize: 13 }}>{eventDescriptionTooltip.description}</div>
+                  </div>
+                )}
 
-              {/* Canvas Context Menu */}
-              {/* {canvasContextMenu && (
+                {/* Canvas Context Menu */}
+                {/* {canvasContextMenu && (
                 <div
                   style={{
                     position: 'absolute',
@@ -2517,10 +2574,10 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                   </button>
                 </div>
               )} */}
-            </>
-          );
-        }}
-      </Zoom>
-    </div>
-  );
-}
+              </>
+            );
+          }}
+        </Zoom>
+      </div>
+    );
+  }
