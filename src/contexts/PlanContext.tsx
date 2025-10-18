@@ -351,6 +351,7 @@ interface PlanContextType {
     convertDateParametersToDays: (events: any[]) => any[]; // <-- add this new method
     triggerSimulation: () => void; // <-- add this new method
     registerTriggerSimulation: (fn: () => void) => void; // <-- add this new method
+    registerSampleData: (fn: () => void) => void; // <-- add this new method
     handleZoomToWindow: (options: { years?: number; months?: number; days?: number }) => void; // <-- add this new method
     registerHandleZoomToWindow: (fn: (options: { years?: number; months?: number; days?: number }) => void) => void; // <-- add this new method
     updatePlanDirectly: (planData: Plan) => void; // <-- add this new method for direct plan updates without viewing window reset
@@ -480,6 +481,9 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
     // Ref to store the triggerSimulation function from Visualization
     const triggerSimulationRef = useRef<(() => void) | null>(null);
+
+    // Ref to store the sampleData function from Visualization. This shouldnt be used.
+    const sampleDataRef = useRef<(() => void) | null>(null);
 
     // Ref to store the handleZoomToWindow function from Visualization
     const handleZoomToWindowRef = useRef<((options: { years?: number; months?: number; days?: number }) => void) | null>(null);
@@ -1945,8 +1949,18 @@ export function PlanProvider({ children }: PlanProviderProps) {
                 console.warn('triggerSimulation called but Visualization component not ready yet');
             }
         },
+        triggerSampleData: () => {
+            if (sampleDataRef.current) {
+                sampleDataRef.current();
+            } else {
+                console.warn('triggerSampleData called but Visualization component not ready yet');
+            }
+        },
         registerTriggerSimulation: (fn: () => void) => {
             triggerSimulationRef.current = fn;
+        },
+        registerSampleData: (fn: () => void) => {
+            sampleDataRef.current = fn;
         },
         handleZoomToWindow: (options: { years?: number; months?: number; days?: number }) => {
             // Use the ref if available, otherwise log a warning
