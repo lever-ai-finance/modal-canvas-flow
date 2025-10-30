@@ -4,7 +4,47 @@ import { createClient, Session } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
+// Configure how notifications are handled when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  if (!Device.isDevice) {
+    console.log("Must use physical device for Push Notifications");
+    return;
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    alert('Failed to get push token for push notifications!');
+    return;
+  }
+
+  const tokenData = await Notifications.getExpoPushTokenAsync();
+  const expoPushToken = tokenData.data;
+  console.log("Expo push token:", expoPushToken);
+
+  // TODO: send this token to your backend / Supabase
+
+  return expoPushToken;
+}
 // 🔑 Replace with your Supabase project details
 const supabaseUrl = "https://apxkjjrretikisblkdnw.supabase.co";
 const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFweGtqanJyZXRpa2lzYmxrZG53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NzU5NTQsImV4cCI6MjA2ODQ1MTk1NH0.HJWgkxyjIi3JW9iVMalWGQ6RNsddQKwMJ2k372aJKOk";
@@ -50,30 +90,29 @@ export default function App() {
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [enableBiometricToggle, setEnableBiometricToggle] = useState(true);
+  const [isBlurred, setIsBlurred] = useState(false);
 
-  // 1. Check if device has biometric authentication
+  // Initialize app: Check biometric support, session, and set up auth
   useEffect(() => {
-    (async () => {
+    const initializeApp = async () => {
+      // 1. Check if device has biometric authentication
       const compatible = await LocalAuthentication.hasHardwareAsync();
       setIsBiometricSupported(compatible);
 
-      // Check if user has biometric enabled
+      // 2. Check if user has biometric enabled
       const biometricEnabled = await SecureStore.getItemAsync("biometric_enabled");
       setIsBiometricEnabled(biometricEnabled === "true");
-    })();
-  }, []);
 
-  // 2. Check if they have an active session
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // 3. Check for active session
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
 
-      // 3. If active session exists, check if biometric is enabled
+      // 4. If active session exists, check if biometric is enabled
       if (session) {
-        const biometricEnabled = await SecureStore.getItemAsync("biometric_enabled");
-
         if (biometricEnabled === "true") {
-          // Automatically trigger biometric authentication
+          // Blur the screen to protect sensitive data
+          setIsBlurred(true);
+          // Automatically trigger biometric authentication after blur is applied
           setTimeout(() => handleBiometricAuth(), 300);
         } else {
           // No biometric, just load the plan
@@ -81,9 +120,11 @@ export default function App() {
           loadPlan();
         }
       }
-    });
+    };
 
-    // Listen for auth state changes (sign in / sign out)
+    initializeApp();
+
+    // 5. Listen for auth state changes (sign in / sign out)
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -97,16 +138,43 @@ export default function App() {
     return () => subscription.subscription.unsubscribe();
   }, []);
 
+  // 3️⃣ Register for Push Notifications after authentication
+  useEffect(() => {
+    const registerPushToken = async () => {
+      if (session && isAuthenticated) {
+        const expoPushToken = await registerForPushNotificationsAsync();
+        if (!expoPushToken) return;
+
+        // Store token in Supabase
+        const { error } = await supabase
+          .from("user_push_tokens")
+          .upsert({
+            user_id: session.user.id,
+            expo_push_token: expoPushToken,
+          });
+
+        if (error) {
+          console.error("Error saving push token:", error);
+        } else {
+          console.log("Expo push token saved successfully:", expoPushToken);
+        }
+      }
+    };
+
+    registerPushToken();
+  }, [session, isAuthenticated]);
+
   async function handleBiometricAuth() {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Authenticate to access your financial data",
+        promptMessage: "Authenticate for Lever",
         fallbackLabel: "Use passcode",
         disableDeviceFallback: false,
         cancelLabel: "Cancel",
       });
 
       if (result.success) {
+        setIsBlurred(false); // Remove blur on successful authentication
         setIsAuthenticated(true);
         loadPlan();
       } else {
@@ -176,11 +244,6 @@ export default function App() {
       alert(error.message);
       return;
     }
-
-    // If toggle is enabled, enable biometric authentication
-    if (isBiometricSupported) {
-      await enableBiometric();
-    }
   }
 
   async function signOut() {
@@ -222,7 +285,55 @@ export default function App() {
     }
   }
 
-  // Show login screen if not authenticated (no session OR session exists but pending biometric)
+  async function sendDemoNotification() {
+    try {
+      // Request permissions if not already granted
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please enable notifications to receive updates.');
+        return;
+      }
+
+      // Schedule a local notification immediately
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Lever",
+          body: "Goverment shutdown 5min ago, this months stipend payments will be delayed",
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null, // null means send immediately
+      });
+      // Schedule a local notification immediately
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Lever",
+          body: "Recently passed legislation includes a $12,000 tax deduction on your social security income.",
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null, // null means send immediately
+      });
+      // Schedule a local notification immediately
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Lever",
+          body: "Your investment in Palantir has recieved government contract for $450M to develop AI models.",
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: null, // null means send immediately
+      });
+
+
+      Alert.alert('Success', 'Demo notification sent! Check your notification tray.');
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      Alert.alert('Error', 'Failed to send notification');
+    }
+  }
+
+  // Show login screen if not authenticated
   if (!isAuthenticated) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
@@ -372,9 +483,24 @@ export default function App() {
         </>
       )}
 
+      {/* Demo Notification Button */}
+      <TouchableOpacity style={styles.button} onPress={sendDemoNotification}>
+        <Text style={styles.buttonText}>📬 Send Demo Notification</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.buttonSecondary} onPress={signOut}>
         <Text style={styles.buttonSecondaryText}>Sign Out</Text>
       </TouchableOpacity>
+
+      {/* Blur Overlay - Show when waiting for biometric authentication */}
+      {isBlurred && (
+        <View style={styles.blurOverlay}>
+          <View style={styles.blurContent}>
+            <Text style={styles.blurText}>🔒</Text>
+            <Text style={styles.blurMessage}>Authenticate to continue</Text>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -620,5 +746,29 @@ const styles = StyleSheet.create({
     fontSize: 64,
     textAlign: 'center',
     marginVertical: 16,
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(248, 249, 250, 0.95)',
+  },
+  blurContent: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  blurText: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  blurMessage: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
   },
 });
