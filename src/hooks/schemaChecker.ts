@@ -1,3 +1,5 @@
+import type { Event, Plan } from "../contexts/PlanContext";
+
 export function extractSchema(schema: any) {
     const eventSchemas: Record<string, any> = {};
 
@@ -162,8 +164,8 @@ export function validateProblem(problem: any, schemaMap: any, schema?: any, plan
     return errors;
 }
 
-export function parseEvents(problem: any) {
-    return problem.events.map((event: any) => ({
+export function parseEvents(problem: Plan) {
+    return problem.events.map((event: Event) => ({
         id: event.id,
         type: event.type,
         description: event.description || "",

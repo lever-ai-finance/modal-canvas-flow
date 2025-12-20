@@ -109,10 +109,11 @@
 //          else: do nothing event doesnt affect the balances on this day
 //      
 
-import type { Plan, Schema } from '../contexts/PlanContext';
+import type { Plan, Schema, Event } from '../contexts/PlanContext';
 import type { Datum } from '../visualization/viz_utils';
 import { validateProblem, extractSchema, parseEvents } from './schemaChecker';
 import type * as AllEventTypes from '../types/generated-types';
+import { env } from 'process';
 
 export async function runSimulation(
     plan: Plan,
@@ -131,8 +132,7 @@ export async function runSimulation(
         console.log('[runSimulation] Issues:', issues);
     }
 
-
-    const envelopes: Record<string, any> = {};
+    const envelopes: Record<string, any> = {}; //track each envelope balance
 
     //console.log("plan.envelopes", plan.envelopes);
     for (const env of plan.envelopes) {
@@ -153,34 +153,52 @@ export async function runSimulation(
 
     while (day <= endDate) {
         applyEventsToDay(day, eventList, envelopes);
+
         // Take balance from envelopes, add balances and append to results
         const parts: { [key: string]: number } = {};
         const nonNetworthParts: { [key: string]: number } = {};
-        let value = 0;
+        let total_networth = 0;
         for (const envelope in envelopes) {
+            // set the non networthparts to those envleopes and then for networth parts accumulate total value
+
             if (envelopes[envelope].account_type === "non-networth") {
                 nonNetworthParts[envelope] = envelopes[envelope].balance;
             }
             else {
                 parts[envelope] = envelopes[envelope].balance;
-                value += envelopes[envelope].balance;
+                total_networth += envelopes[envelope].balance;
             }
         }
 
-        results.push({ date: day, value: value, parts: parts, nonNetworthParts: nonNetworthParts });
+        results.push({ date: day, value: total_networth, parts: parts, nonNetworthParts: nonNetworthParts });
         day++; //go to next day
     }
 
     return results;
 }
 
-const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<string, any>) => {
+const applyEventsToDay = (day: number, eventList: [any], envelopes: Record<string, any>) => {
     for (const event of eventList) {
-        if (event.parameters.start_time <= day) {
+        // check to see if I should even apply the event
+        //console.log("Event Title: ", event.title);
+        if (event.parameters.start_time <= day) { // event.paramters.start_date exists
             switch (event.type) {
                 case "inflow":
                     applyInflowToDay(day, event, envelopes);
                     break;
+                case "outflow":
+                    applyOutflowToDay(day, event, envelopes);
+                    break;
+                case "declare_accounts":
+                    declare_accounts(day, event, envelopes);
+                    break;
+                case "transfer_money":
+                    transfer_money(day, event, envelopes);
+                    break;
+                // More event types can be added here
+                default:
+                    break;
+                // More event types can be added here
             }
         }
     }
@@ -230,7 +248,7 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
             switch (updating_event.type) {
                 case "update_amount": {
                     // update_amount only has start_time and amount - it's a one-time update
-                    const uParams = updating_event.parameters as AllEventTypes.update_amountParams;
+                    const uParams = updating_event.parameters as AllEventTypes.inflow_update_amountParams;
                     if (uParams.start_time == day) {
                         params.amount = uParams.amount;
                     }
@@ -238,7 +256,7 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
                 }
                 case "increment_amount": {
                     // increment_amount can be recurring and has frequency_days
-                    const uParams = updating_event.parameters as AllEventTypes.increment_amountParams;
+                    const uParams = updating_event.parameters as AllEventTypes.inflow_increment_amountParams;
                     if (uParams.start_time == day) {
                         params.amount += uParams.amount;
                     }
@@ -251,7 +269,7 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
                 }
                 case "additional_inflow": {
                     // additional_inflow adds directly to the envelope, can be recurring
-                    const uParams = updating_event.parameters as AllEventTypes.additional_inflowParams;
+                    const uParams = updating_event.parameters as AllEventTypes.inflow_additional_inflowParams;
                     if (uParams.start_time == day) {
                         envelopes[params.to_key].balance += uParams.amount;
                     }
@@ -270,6 +288,79 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
+            envelopes[params.to_key].balance += params.amount;
+        }
+    }
+}
+
+const applyOutflowToDay = (day: number, event: any, envelopes: Record<string, any>) => {
+    const params = event.parameters as AllEventTypes.outflowParams;
+
+    //check for updating events
+    if (event.updating_events.length > 0) {
+        for (const updating_event of event.updating_events) {
+            switch (updating_event.type) {
+                case "update_amount": {
+                    const uParams = updating_event.parameters as AllEventTypes.outflow_update_amountParams;
+                    if (uParams.start_time == day) {
+                        params.amount = uParams.amount;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    //event logic
+    if (params.start_time == day) {
+        envelopes[params.from_key].balance -= params.amount;
+    }
+    if (event.is_recurring && day <= params.end_time) {
+        if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
+            envelopes[params.from_key].balance -= params.amount;
+        }
+    }
+}
+
+const declare_accounts = (day: number, event: any, envelopes: Record<string, any>) => {
+    const params = event.parameters as AllEventTypes.declare_accountsParams;
+
+    // No updating event logic yet
+
+    //event logic
+    if (params.start_time == day) {
+        // Set balances of each evenlope to the amount
+        envelopes[params.envelope1].balance = params.amount1;
+        envelopes[params.envelope2].balance = params.amount2;
+        envelopes[params.envelope3].balance = params.amount3;
+        envelopes[params.envelope4].balance = params.amount4;
+        envelopes[params.envelope5].balance = params.amount5;
+    }
+}
+
+const transfer_money = (day: number, event: any, envelopes: Record<string, any>) => {
+    const params = event.parameters as AllEventTypes.transfer_moneyParams;
+
+    if (event.updating_events.length > 0) {
+        for (const updating_event of event.updating_events) {
+            switch (updating_event.type) {
+                case "update_amount": {
+                    const uParams = updating_event.parameters as AllEventTypes.transfer_money_update_amountParams;
+                    if (uParams.start_time == day) {
+                        params.amount = uParams.amount;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    if (params.start_time == day) {
+        envelopes[params.from_key].balance -= params.amount;
+        envelopes[params.to_key].balance += params.amount;
+    }
+    if (event.is_recurring && day <= params.end_time) {
+        if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
+            envelopes[params.from_key].balance -= params.amount;
             envelopes[params.to_key].balance += params.amount;
         }
     }

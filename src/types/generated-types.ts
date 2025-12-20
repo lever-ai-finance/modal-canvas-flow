@@ -31,19 +31,19 @@ export interface inflowParams {
   total_inflow?: number;
 }
 
-export interface update_amountParams {
+export interface inflow_update_amountParams {
   start_time: number;
   amount: number;
 }
 
-export interface increment_amountParams {
+export interface inflow_increment_amountParams {
   start_time: number;
   end_time: number;
   frequency_days: number;
   amount: number;
 }
 
-export interface additional_inflowParams {
+export interface inflow_additional_inflowParams {
   start_time: number;
   end_time: number;
   frequency_days: number;
@@ -67,10 +67,8 @@ export interface outflowParams {
   total_outflow?: number;
 }
 
-export interface update_amountParams {
+export interface outflow_update_amountParams {
   start_time: number;
-  end_time: number;
-  frequency_days: number;
   amount: number;
 }
 
@@ -113,7 +111,7 @@ export interface transfer_moneyParams {
   total_transfer?: number;
 }
 
-export interface update_amountParams {
+export interface transfer_money_update_amountParams {
   start_time: number;
   end_time: number;
   frequency_days: number;
@@ -134,7 +132,7 @@ export interface income_with_changing_parametersParams {
   to_key: string;
 }
 
-export interface update_amountParams {
+export interface income_with_changing_parameters_update_amountParams {
   start_time: number;
   end_time: number;
   frequency_days: number;
@@ -253,7 +251,7 @@ export interface monthly_budgetingParams {
   miscellaneous: number;
 }
 
-export interface update_monthly_budgetParams {
+export interface monthly_budgeting_update_monthly_budgetParams {
   start_time: number;
   key: string;
   amount: number;
@@ -288,24 +286,24 @@ export interface get_jobParams {
   local_withholdings_key?: string;
 }
 
-export interface get_a_raiseParams {
+export interface get_job_get_a_raiseParams {
   start_time: number;
   salary: number;
 }
 
-export interface reoccurring_raiseParams {
+export interface get_job_reoccurring_raiseParams {
   start_time: number;
   frequency_days: number;
   end_time: number;
   salary_increase: number;
 }
 
-export interface get_a_bonusParams {
+export interface get_job_get_a_bonusParams {
   start_time: number;
   bonus: number;
 }
 
-export interface change_401k_contributionParams {
+export interface get_job_change_401k_contributionParams {
   start_time: number;
   p_401k_contribution: number;
 }
@@ -340,22 +338,22 @@ export interface get_wage_jobParams {
   local_withholdings_key?: string;
 }
 
-export interface get_a_raiseParams {
+export interface get_wage_job_get_a_raiseParams {
   start_time: number;
   new_hourly_wage: number;
 }
 
-export interface change_hoursParams {
+export interface get_wage_job_change_hoursParams {
   start_time: number;
   new_hours: number;
 }
 
-export interface change_401k_contributionParams {
+export interface get_wage_job_change_401k_contributionParams {
   start_time: number;
   p_401k_contribution: number;
 }
 
-export interface change_employer_matchParams {
+export interface get_wage_job_change_employer_matchParams {
   start_time: number;
   new_match_rate: number;
 }
@@ -367,14 +365,14 @@ export interface start_businessParams {
   to_key: string;
 }
 
-export interface business_incomeParams {
+export interface start_business_business_incomeParams {
   start_time: number;
   end_time: number;
   monthly_income: number;
   to_key: string;
 }
 
-export interface business_lossParams {
+export interface start_business_business_lossParams {
   start_time: number;
   loss_amount: number;
   from_key: string;
@@ -428,26 +426,26 @@ export interface buy_houseParams {
   end_time?: number;
 }
 
-export interface new_appraisalParams {
+export interface buy_house_new_appraisalParams {
   start_time: number;
   appraised_value: number;
 }
 
-export interface extra_mortgage_paymentParams {
+export interface buy_house_extra_mortgage_paymentParams {
   start_time: number;
   amount: number;
   from_key: string;
   month_index: number;
 }
 
-export interface late_paymentParams {
+export interface buy_house_late_paymentParams {
   start_time: number;
   amount: number;
   from_key: string;
   month_index: number;
 }
 
-export interface sell_houseParams {
+export interface buy_house_sell_houseParams {
   start_time: number;
   sale_price: number;
   from_key: string;
@@ -476,13 +474,13 @@ export interface buy_carParams {
   car_loan_envelope: string;
 }
 
-export interface pay_loan_earlyParams {
+export interface buy_car_pay_loan_earlyParams {
   start_time: number;
   amount: number;
   from_key: string;
 }
 
-export interface car_repairParams {
+export interface buy_car_car_repairParams {
   start_time: number;
   cost: number;
   from_key: string;
@@ -500,14 +498,14 @@ export interface have_kidParams {
   from_key: string;
 }
 
-export interface childcare_costsParams {
+export interface have_kid_childcare_costsParams {
   start_time: number;
   monthly_cost: number;
   from_key: string;
   end_time: number;
 }
 
-export interface college_fundParams {
+export interface have_kid_college_fundParams {
   start_time: number;
   initial_contribution: number;
   monthly_contribution: number;
@@ -559,7 +557,7 @@ export interface buy_health_insuranceParams {
   from_key: string;
 }
 
-export interface medical_expenseParams {
+export interface buy_health_insurance_medical_expenseParams {
   start_time: number;
   total_cost: number;
   from_key: string;
@@ -575,7 +573,7 @@ export interface buy_life_insuranceParams {
   from_key: string;
 }
 
-export interface increase_coverageParams {
+export interface buy_life_insurance_increase_coverageParams {
   start_time: number;
   new_coverage_amount: number;
   new_monthly_premium: number;
@@ -598,14 +596,14 @@ export interface invest_moneyParams {
   to_key: string;
 }
 
-export interface Reoccuring_Dividend_PayoutParams {
+export interface invest_money_Reoccuring_Dividend_PayoutParams {
   start_time: number;
   end_time: number;
   frequency_days: number;
   amount: number;
 }
 
-export interface transfer_outParams {
+export interface invest_money_transfer_outParams {
   start_time: number;
   amount: number;
   to_key: string;
@@ -613,7 +611,7 @@ export interface transfer_outParams {
   long_term_capital_gains_envelope: string;
 }
 
-export interface sell_allParams {
+export interface invest_money_sell_allParams {
   start_time: number;
   to_key: string;
   short_term_capital_gains_envelope: string;

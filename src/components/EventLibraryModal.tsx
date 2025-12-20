@@ -43,7 +43,7 @@ const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, 
       const eventStageNumber = getOnboardingStateNumber(eventOnboardingStage as any);
       const currentStageNumber = getOnboardingStateNumber(onboarding_state);
       if (eventStageNumber > currentStageNumber) {
-        return false; // Event is not available at current onboarding stage
+        return true; // Event is not available at current onboarding stage
       }
     }
 

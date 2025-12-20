@@ -63,17 +63,17 @@ export type EventFunctionState = Record<string, boolean>;
         // Generate event function type if updating event has function parts
         if (updatingEvent.event_functions_parts && updatingEvent.event_functions_parts.length > 0) {
           const functionTypes = updatingEvent.event_functions_parts.map((f: any) => `"${f.type}"`).join(' | ');
-          output += `export type ${safeUpdatingEventType}FunctionTypes = ${functionTypes};\n\n`;
+          output += `export type ${eventType}_${safeUpdatingEventType}FunctionTypes = ${functionTypes};\n\n`;
 
           // Generate interface for event functions state
-          output += `export interface ${safeUpdatingEventType}FunctionState extends EventFunctionState {\n`;
+          output += `export interface ${eventType}_${safeUpdatingEventType}FunctionState extends EventFunctionState {\n`;
           updatingEvent.event_functions_parts.forEach((f: any) => {
             output += `  "${f.type}"?: boolean;\n`;
           });
           output += `}\n\n`;
         }
 
-        const updatingInterfaceName = `${safeUpdatingEventType}Params`;
+        const updatingInterfaceName = `${eventType}_${safeUpdatingEventType}Params`;
         output += `export interface ${updatingInterfaceName} {\n`;
 
         if (updatingEvent.parameters) {

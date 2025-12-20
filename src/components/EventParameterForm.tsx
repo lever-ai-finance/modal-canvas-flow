@@ -385,7 +385,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
 
     // Helper to check if updating events should be shown based on onboarding stage
     const shouldShowUpdatingEvents = () => {
-        if (!mainEvent || !mainEventSchema?.updating_events) return false;
+        if (!mainEvent || !mainEventSchema?.updating_events) return true;
 
         // Check if any updating events are available at current onboarding stage
         return mainEventSchema.updating_events.some(ue => {

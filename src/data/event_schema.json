@@ -580,22 +580,6 @@
                             "editable": true
                         },
                         {
-                            "type": "end_time",
-                            "display_name": "End Date",
-                            "parameter_units": "date",
-                            "description": "When the recurring update ends ",
-                            "default": 3650,
-                            "editable": true
-                        },
-                        {
-                            "type": "frequency_days",
-                            "display_name": "Frequency (Days)",
-                            "parameter_units": "days",
-                            "description": "Number of days between each update ",
-                            "default": 365,
-                            "editable": true
-                        },
-                        {
                             "type": "amount",
                             "display_name": "Amount",
                             "parameter_units": "usd",
@@ -840,22 +824,6 @@
                             "parameter_units": "date",
                             "description": "When the transaction amount changes",
                             "default": 0,
-                            "editable": true
-                        },
-                        {
-                            "type": "end_time",
-                            "display_name": "End Date",
-                            "parameter_units": "date",
-                            "description": "When the recurring update ends ",
-                            "default": 3650,
-                            "editable": true
-                        },
-                        {
-                            "type": "frequency_days",
-                            "display_name": "Frequency (Days)",
-                            "parameter_units": "days",
-                            "description": "Number of days between each update ",
-                            "default": 365,
                             "editable": true
                         },
                         {
