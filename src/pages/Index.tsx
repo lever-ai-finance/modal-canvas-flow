@@ -204,9 +204,6 @@ export default function Index() {
     setErrorOpen(true);
   };
 
-  // Use the context's savePlanToFile for export
-  const handleExport = savePlanToFile;
-
   const handleOpen = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -352,11 +349,6 @@ export default function Index() {
   // Handler for visualization click
   const handleVisualizationClick = (dayOffset: number) => {
     handleEventLibraryOpen(dayOffset);
-  };
-
-  // Modify the menu open handler
-  const handleMenuClick = () => {
-    checkViewingMode(() => setHelpModalOpen(true));
   };
 
   return (
