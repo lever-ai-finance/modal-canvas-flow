@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import type { Plan as PlanContextPlan } from './PlanContext';
 
-// Onboarding state mapping
+// Onboarding state also used for access states
 const ONBOARDING_STATES = [
     'user_info',
     'basics',
@@ -12,7 +12,8 @@ const ONBOARDING_STATES = [
     'declare_accounts',
     'assets',
     'tax_system',
-    'full'
+    'full',
+    'developer'
 ] as const;
 
 export type OnboardingState = typeof ONBOARDING_STATES[number];
@@ -29,7 +30,7 @@ const getOnboardingStateFromNumber = (number: number): OnboardingState | null =>
     return null;
 };
 
-interface Plan {
+interface DatabaseRowPlan {
     id: string;
     plan_name: string | null;
     plan_data: any;
@@ -54,7 +55,7 @@ interface UserProfile {
 
 interface UserData {
     profile: UserProfile | null;
-    plans: Plan[];
+    plans: DatabaseRowPlan[];
 }
 
 interface AuthContextType {
@@ -71,7 +72,7 @@ interface AuthContextType {
     savePlanToCloud: (plan: PlanContextPlan, planImage?: string) => Promise<{ success: boolean; requiresConfirmation?: boolean; existingPlanName?: string }>;
     confirmOverwritePlan: () => void;
     deletePlan: (planId: string) => Promise<boolean>;
-    loadPlanById: (planId: string) => Promise<Plan | null>;
+    loadPlanById: (planId: string) => Promise<DatabaseRowPlan | null>;
     upsertAnonymousOnboarding: (onboardingData: any) => Promise<boolean>;
     fetchAnonymousOnboarding: () => Promise<any>;
     upsertAnonymousPlan: (planName: string, planData: any, planImage?: string) => Promise<boolean>;
@@ -571,7 +572,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const loadPlanById = async (planId: string): Promise<Plan | null> => {
+    const loadPlanById = async (planId: string): Promise<DatabaseRowPlan | null> => {
         if (!user) {
             toast.error('Unable to load plan: User not logged in');
             return null;

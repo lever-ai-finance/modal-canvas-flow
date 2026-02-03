@@ -384,7 +384,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     }
   }, [wheelHandler]);
 
-  const { plan, plan_locked, getEventIcon, updateParameter, schema, deleteEvent, getEventDisplayType, currentDay, registerSetZoomToDateRange, setVisualizationReady, convertDateParametersToDays, registerTriggerSimulation, registerSampleData, registerHandleZoomToWindow, updatePlanDirectly, updateLockedPlanDirectly, isCompareMode, sortPlanEvents } = usePlan();
+  const { plan, plan_locked, getEventIcon, updateParameter, schema, deleteEvent, getEventDisplayType, currentDay, registerSetZoomToDateRange, setVisualizationReady, convertDateParametersToDays, registerTriggerSimulation, registerHandleZoomToWindow, updatePlanDirectly, updateLockedPlanDirectly, isCompareMode, sortPlanEvents } = usePlan();
 
   // Register the setZoomToDateRange function with the context when it's available
   useEffect(() => {
@@ -736,15 +736,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
       sampleData();
     }
   }, []); // do not depend on plan and schema, only run on initial load
-
-  // Expose the sampleData function for external use
-  const sampleDataExternal = useCallback((intervalOverride?: TimeInterval, visibleRangeOverride?: { startDate: number, endDate: number }) => {
-    sampleData(intervalOverride, visibleRangeOverride);
-  }, [sampleData]);
-
-  useEffect(() => {
-    registerSampleData(sampleDataExternal);
-  }, [registerSampleData, sampleDataExternal]);
 
   // Expose manual simulation trigger for external use
   const triggerSimulation = useCallback(() => {

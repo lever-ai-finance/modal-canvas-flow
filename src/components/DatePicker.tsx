@@ -9,7 +9,7 @@ import {
     PopoverTrigger,
 } from './ui/popover';
 import { cn } from '../lib/utils';
-import { getAgeFromBirthToDate, getTargetDateFromBirthAndAge } from '../contexts/PlanContext';
+import { getAgeFromDateStrings, getTargetDateFromBirthAndAge } from '../contexts/PlanContext';
 import { usePlan } from '../contexts/PlanContext';
 
 interface DatePickerProps {
@@ -70,7 +70,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
     useEffect(() => {
         if (value && plan?.birth_date && showAgeInput) {
             try {
-                const ageInYears = getAgeFromBirthToDate(plan.birth_date, value);
+                const ageInYears = getAgeFromDateStrings(plan.birth_date, value);
                 setAgeInput(Math.max(0, ageInYears).toString());
             } catch {
                 setAgeInput("");

@@ -92,9 +92,6 @@ export const getAgeFromDateStrings = (birthDateString: string, targetDateString:
     return years;
 };
 
-// Calculate age from birth date to a specific target date (for DatePicker context)
-export const getAgeFromBirthToDate = getAgeFromDateStrings; // Same exact calculation
-
 // Calculate target date from birth date and age
 export const getTargetDateFromBirthAndAge = (birthDateString: string, age: number): string => {
     const birthDate = new Date(birthDateString + 'T00:00:00');
@@ -313,7 +310,7 @@ export interface Schema {
 
 interface PlanContextType {
     plan: Plan | null;
-    plan_locked: Plan | null; // <-- add this
+    plan_locked: Plan | null;
     schema: Schema | null;
     isCompareMode: boolean;
     show_all: boolean;
@@ -367,7 +364,6 @@ interface PlanContextType {
     convertDateParametersToDays: (events: any[]) => any[]; // <-- add this new method
     triggerSimulation: () => void; // <-- add this new method
     registerTriggerSimulation: (fn: () => void) => void; // <-- add this new method
-    registerSampleData: (fn: () => void) => void; // <-- add this new method
     handleZoomToWindow: (options: { years?: number; months?: number; days?: number }) => void; // <-- add this new method
     registerHandleZoomToWindow: (fn: (options: { years?: number; months?: number; days?: number }) => void) => void; // <-- add this new method
     updatePlanDirectly: (planData: Plan) => void; // <-- add this new method for direct plan updates without viewing window reset
@@ -465,7 +461,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
     const [plan_locked, setPlanLocked] = useState<Plan | null>(null); // <-- add this
     const [schema, setSchema] = useState<Schema | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
-    const [isVisualizationReady, setIsVisualizationReady] = useState(false); // <-- add this new state
+    const [isVisualizationReady, setIsVisualizationReady] = useState(false);
     const [shouldTriggerSimulation, setShouldTriggerSimulation] = useState(false);
     const [isExampleViewing, setIsExampleViewing] = useState(false); // Add this new state
     // Add compare mode state with enhanced setter
@@ -501,9 +497,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
     // Ref to store the triggerSimulation function from Visualization
     const triggerSimulationRef = useRef<(() => void) | null>(null);
-
-    // Ref to store the sampleData function from Visualization. This shouldnt be used.
-    const sampleDataRef = useRef<(() => void) | null>(null);
 
     // Ref to store the handleZoomToWindow function from Visualization
     const handleZoomToWindowRef = useRef<((options: { years?: number; months?: number; days?: number }) => void) | null>(null);
@@ -1485,7 +1478,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
         });
     }, [plan]);
 
-    // --- Add lockPlan method ---
+    // Used to switch the plan and the locked plan
     const lockPlan = useCallback(() => {
         // Ensure no shared references by deep cloning when swapping
         const temp = plan_locked ? deepClonePlan(plan_locked) : null;
@@ -2031,18 +2024,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
                 console.warn('triggerSimulation called but Visualization component not ready yet');
             }
         },
-        triggerSampleData: () => {
-            if (sampleDataRef.current) {
-                sampleDataRef.current();
-            } else {
-                console.warn('triggerSampleData called but Visualization component not ready yet');
-            }
-        },
         registerTriggerSimulation: (fn: () => void) => {
             triggerSimulationRef.current = fn;
-        },
-        registerSampleData: (fn: () => void) => {
-            sampleDataRef.current = fn;
         },
         handleZoomToWindow: (options: { years?: number; months?: number; days?: number }) => {
             // Use the ref if available, otherwise log a warning
