@@ -690,7 +690,6 @@ export default function Index() {
       <OnboardingFlow
         isOpen={onboardingOpen}
         onComplete={() => {
-
           setOnboardingOpen(false);
         }}
         onAuthRequired={() => {

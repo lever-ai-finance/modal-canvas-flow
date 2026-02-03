@@ -13,17 +13,7 @@ interface EnvelopeManagerModalProps {
 }
 
 const EnvelopeManagerModal: React.FC<EnvelopeManagerModalProps> = ({ isOpen, onClose, onEditEnvelope, onAddEnvelope }) => {
-  const { plan, loadPlan } = usePlan();
-
-  const deleteEnvelope = (index: number) => {
-    if (!plan) return;
-    const updatedEnvelopes = plan.envelopes.filter((_, i) => i !== index);
-    const updatedPlan = {
-      ...plan,
-      envelopes: updatedEnvelopes
-    };
-    loadPlan(updatedPlan);
-  };
+  const { plan, deleteEnvelope, updateEnvelope } = usePlan();
 
   // Check if an envelope is non-editable (Other envelope or non-regular account_type)
   const isNonEditableEnvelope = (envelope: any) => {
@@ -39,6 +29,7 @@ const EnvelopeManagerModal: React.FC<EnvelopeManagerModalProps> = ({ isOpen, onC
 
         <div className="space-y-4">
           {plan?.envelopes.map((envelope, index) => {
+            const envelope_id = envelope.envelope_id;
             // Display only the part inside parentheses for 'Other (X)' envelopes
             let displayName = envelope.name;
             const otherMatch = envelope.name.match(/^Other \((.+)\)$/i);
@@ -67,7 +58,7 @@ const EnvelopeManagerModal: React.FC<EnvelopeManagerModalProps> = ({ isOpen, onC
                       <Pencil size={16} />
                     </Button>
                     <Button
-                      onClick={() => deleteEnvelope(index)}
+                      onClick={() => deleteEnvelope(envelope_id!)}
                       size="sm"
                       variant="destructive"
                       disabled={isNonEditable}

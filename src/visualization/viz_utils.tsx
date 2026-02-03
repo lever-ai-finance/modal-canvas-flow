@@ -162,7 +162,7 @@ export const generateEnvelopeColors = (categories: string[]): Record<string, { a
 // --- New: Generate category and envelope colors ---
 
 // Assign a base color to each category (can be customized as needed)
-const CATEGORY_BASE_COLORS: Record<string, string> = {
+export const CATEGORY_BASE_COLORS: Record<string, string> = {
     'Savings': '#FFC107', // Yellow
     'Investments': '#00BCD4', // Cyan
     'Income': '#FF9800', // Orange

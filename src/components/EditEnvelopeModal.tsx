@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { usePlan } from '../contexts/PlanContext';
+import { usePlan, type Envelope } from '../contexts/PlanContext';
 
 interface EditEnvelopeModalProps {
   isOpen: boolean;
@@ -17,8 +17,8 @@ interface EditEnvelopeModalProps {
     rate: number;
     days_of_usefulness?: number;
     account_type: string;
-  } | null;
-  onSave: (envelope: { name: string; category: string; growth: string; rate: number; days_of_usefulness?: number; account_type: string }) => void;
+    } | null;
+  onSave: (envelope: Envelope) => void;
 }
 
 const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, envelope = null, onSave }) => {

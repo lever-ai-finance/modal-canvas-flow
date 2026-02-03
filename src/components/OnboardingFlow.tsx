@@ -7,11 +7,15 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent } from './ui/card';
-import { DollarSign, Target, Home, Plane, TrendingUp, PiggyBank, Building, Wallet, Shield, Sparkles } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { DollarSign, Target, Home, Plane, TrendingUp, PiggyBank, Building, Wallet, Shield, Sparkles, Pencil, Plus, Trash2, HelpCircle, CreditCard } from 'lucide-react';
 import { usePlan } from '../contexts/PlanContext';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import DatePicker from './DatePicker';
+import EditEnvelopeModal from './EditEnvelopeModal';
+import { CATEGORY_BASE_COLORS } from '../visualization/viz_utils';
+
 
 interface OnboardingFlowProps {
   isOpen: boolean;
@@ -48,7 +52,25 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
   });
   const [loading, setLoading] = useState(true);
   const { upsertAnonymousOnboarding, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
-  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals } = usePlan();
+  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, addEvent} = usePlan();
+
+  const [selectedDefaultEnvelope, setSelectedDefaultEnvelope] = useState<string>('');
+  const [accounts, setAccounts] = useState<Record<string, number>>(() => {
+    // initialize from plan if available on first render
+    const init: Record<string, number> = {};
+    try {
+      (plan?.envelopes || []).forEach((env: any) => {
+        init[env.name] = 0;
+      });
+    } catch (e) { }
+    return init;
+  });
+  const [editEnvelopeOpen, setEditEnvelopeOpen] = useState(false);
+  const [envelopeBeingEdited, setEnvelopeBeingEdited] = useState<any | null>(null);
+
+  const updateAccount = (key: string, value: number) => {
+    setAccounts(prev => ({ ...prev, [key]: value }));
+  };
 
   // Fetch onboarding data on mount
   React.useEffect(() => {
@@ -76,7 +98,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, currentStep]);
 
-  const totalSteps = 4;  // Reduced to only the first 4 steps
+  const totalSteps = 2;  // Reduced to only the first 4 steps
 
   const handleNext = async () => {
 
@@ -181,98 +203,147 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
 
 
   const steps = [
-    // Step 1: Welcome
+    // Step 1: Account Balances
+    // Add Account Balances: {Drop down menu of default_enevelopes in schema} // use schema.default_envelopes.name, filter by account_type == regular or system-controlled
+    // When clicked on add account to plan. // use addEnvelope(default_envelope)
+    // Need to add "tax_account_type" to a envelope schema
+    // Need API call for getting Default envelopes from schema // use schema.default_envelopes
+    // Need api calls for addinging, deleting, and updating envelopes in the plan // use addEnvelope, deleteEnvelope, updateEnvelope
+    // Need api call for displaying the current envelopes and their details // use plan.envelopes
     {
-      title: "Welcome to Lever Financial Planner",
-      content: (
-        <div className="relative">
-          <div className="text-center space-y-8 relative z-10">
-            <div className="mx-auto w-24 h-24 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center backdrop-blur-sm border border-primary/10">
-              <TrendingUp className="w-12 h-12 text-primary" />
-            </div>
-
-            <div className="space-y-6">
-              <p className="text-lg text-muted-foreground font-light leading-relaxed max-w-2xl mx-auto">
-                A sophisticated tool designed for individuals to model and visualize their financial future with confidence and clarity.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-                <div className="bg-gradient-to-br from-background to-muted/30 p-6 rounded-xl border border-border/50 hover:border-[#03c6fc]/20 transition-all duration-300">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-[#03c6fc]/10 rounded-lg">
-                      <Target className="w-6 h-6 text-[#03c6fc]" />
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-medium text-foreground mb-2">Scenario Planning</h4>
-                      <p className="text-sm text-muted-foreground">Test "what if" situations and explore different financial paths</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-background to-muted/30 p-6 rounded-xl border border-border/50 hover:border-[#03c6fc]/20 transition-all duration-300">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-[#03c6fc]/10 rounded-lg">
-                      <Sparkles className="w-6 h-6 text-[#03c6fc]" />
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-medium text-foreground mb-2">Retirement Planning</h4>
-                      <p className="text-sm text-muted-foreground">Find the optimal path to retirement and financial freedom</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-background to-muted/30 p-6 rounded-xl border border-border/50 hover:border-[#03c6fc]/20 transition-all duration-300">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-[#03c6fc]/10 rounded-lg">
-                      <Shield className="w-6 h-6 text-[#03c6fc]" />
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-medium text-foreground mb-2">Peace of Mind</h4>
-                      <p className="text-sm text-muted-foreground">Stay informed about changes that may affect your financial plan</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-background to-muted/30 p-6 rounded-xl border border-border/50 hover:border-[#03c6fc]/20 transition-all duration-300">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-[#03c6fc]/10 rounded-lg">
-                      <Building className="w-6 h-6 text-[#03c6fc]" />
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-medium text-foreground mb-2">Market Simulation</h4>
-                      <p className="text-sm text-muted-foreground">Simulate thousands of future market conditions and stress-test your plan</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    // Step 2: What they hope to gain
-    {
-      title: "What do you hope to gain from this tool?",
+      title: "Account Balances",
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground text-center mb-6">
-            Select all that apply to your goals:
-          </p>
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              { id: 'understanding', label: 'Better understanding of my current finances', icon: DollarSign },
-              { id: 'management', label: 'Explore opportunities for better asset management', icon: TrendingUp },
-              { id: 'budgeting', label: 'Budgeting Tool', icon: Wallet },
-              { id: 'peace', label: 'Peace of mind', icon: Shield }
-            ].map(({ id, label, icon: Icon }) => (
-              <Card key={id} className={`cursor-pointer transition-all ${data.goals.includes(id) ? 'ring-2 ring-[#03c6fc] bg-[#03c6fc]/5' : 'hover:bg-muted/50'}`} onClick={() => handleGoalToggle(id)}>
-                <CardContent className="flex items-center p-4">
-                  <Icon className="w-5 h-5 mr-3 text-[#03c6fc]" />
-                  <span className="flex-1">{label}</span>
-                  <Checkbox checked={data.goals.includes(id)} />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
+            <span className="text-sm text-muted-foreground mr-2">Add Account Balance:</span>
+            <div className="flex-1">
+              <Select
+                value={selectedDefaultEnvelope}
+                onValueChange={(val) => {
+                  setSelectedDefaultEnvelope('');
+                  const env = schema?.default_envelopes?.find((d: any) => d.name === val);
+                  if (env) addEnvelope(env);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {schema?.default_envelopes
+                    ?.filter((env: any) => ['regular', 'system-controlled'].includes(env.account_type)
+                      && ['Cash', 'Checking Account', 'High Yield Savings', 'Investment Account', 'Roth IRA Account', '401K Account', 'House Equity', 'Car Value'].includes(env.name))
+                    .map((env: any) => (
+                      <SelectItem key={env.name} value={env.name}>{env.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* List of plan envelopes with balance inputs */}
+          <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
+            <div className="flex-grow overflow-y-auto space-y-4 pr-2">
+              {(plan?.envelopes || []).map((env: any) => (
+                <Card key={env.name} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-start space-x-4">
+                      <div
+                        className="p-2 rounded-lg"
+                        style={{
+                          backgroundColor: (CATEGORY_BASE_COLORS[env.category] || '#E5E7EB') + '22',
+                          border: `2px solid ${CATEGORY_BASE_COLORS[env.category] || '#c7d2fe'}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '2rem',
+                          height: '2rem',
+                        }}
+                      >
+                        {(() => {
+                          const map: Record<string, any> = {
+                            'Savings': PiggyBank,
+                            'Investments': TrendingUp,
+                            'Retirement': Shield,
+                            'Debt': CreditCard,
+                            'Cash': Wallet,
+                            'Assets': Building
+                          };
+                          const Icon = map[env.category] || DollarSign;
+                          return <Icon className="w-4 h-4" />;
+                        })()}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{env.name}</h3>
+                          <span className="text-xs text-gray-500">{env.category}</span>
+                        </div>
+                        <div
+                          className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100 cursor-pointer hover:bg-gray-100"
+                          onClick={() => { setEnvelopeBeingEdited(env); setEditEnvelopeOpen(true); }}
+                        >
+                          {env.growth === 'None' ? (
+                            <span className="font-mono">No growth over time</span>
+                          ) : (env.rate !== undefined && env.rate > 0 ? (
+                            <span className="font-mono">{env.growth}: {(env.rate * 100).toFixed(2)}%/yr</span>
+                          ) : null)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-1">
+                        <span className="text-muted-foreground text-sm">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={String(accounts[env.name] ?? '')}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                            updateAccount(env.name, v);
+                          }}
+                          placeholder="0"
+                          className="w-32 text-right"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
+                        onClick={() => { setEnvelopeBeingEdited(env); setEditEnvelopeOpen(true); }}
+                        aria-label="Manage envelope"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-red-600"
+                        onClick={() => { if (env.envelope_id !== undefined) deleteEnvelope(env.envelope_id); }}
+                        aria-label="Delete envelope"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Summary row: total of balances tracked in component */}
+            <div className="border-t border-border/50 pt-4 bg-white mt-3">
+              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/20 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="font-semibold text-foreground">Total (local)</span>
+                </div>
+                <span className="text-lg font-bold text-primary">${(Object.values(accounts).reduce((s, v) => s + (v || 0), 0)).toLocaleString()}</span>
+              </div>
+            </div>
           </div>
         </div>
       )
@@ -441,6 +512,17 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
           </Button>
         </div>
       </DialogContent>
+      <EditEnvelopeModal
+        isOpen={editEnvelopeOpen}
+        onClose={() => { setEditEnvelopeOpen(false); setEnvelopeBeingEdited(null); }}
+        envelope={envelopeBeingEdited}
+        onSave={(env) => {
+          // Keep API access available: call updateEnvelope from context
+          updateEnvelope(env.envelope_id!, env);
+          setEditEnvelopeOpen(false);
+          setEnvelopeBeingEdited(null);
+        }}
+      />
     </Dialog>
   );
 };

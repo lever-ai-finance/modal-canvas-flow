@@ -113,7 +113,6 @@ import type { Plan, Schema, Event } from '../contexts/PlanContext';
 import type { Datum } from '../visualization/viz_utils';
 import { validateProblem, extractSchema, parseEvents } from './schemaChecker';
 import type * as AllEventTypes from '../types/generated-types';
-import { env } from 'process';
 import { Day } from 'react-day-picker';
 
 export async function runSimulation(

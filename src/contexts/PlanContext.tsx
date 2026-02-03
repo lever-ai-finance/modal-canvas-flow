@@ -203,12 +203,24 @@ export interface Event {
 }
 
 export interface Envelope {
+    envelope_id?: number;
     name: string;
     category: string;
     growth: string;
     rate?: number;
     days_of_usefulness?: number;
     account_type: string;
+    tax_account_type?: string; // field for tax accounts
+}
+
+export interface SchemaEnvelope {
+    name: string;
+    category: string;
+    growth: string;
+    rate?: number;
+    days_of_usefulness?: number;
+    account_type: string;
+    tax_account_type?: string; // field for tax accounts
 }
 
 export interface SimulationResult {
@@ -296,7 +308,7 @@ export interface Schema {
     categories: string[];
     parameter_units_list: string[];
     events: SchemaEvent[];
-    default_envelopes?: Envelope[];
+    default_envelopes?: SchemaEnvelope[];
 }
 
 interface PlanContextType {
@@ -340,7 +352,11 @@ interface PlanContextType {
     updateEventRecurring: (eventId: number, isRecurring: boolean) => void; // <--
     hasEventType: (eventType: string) => boolean; // <-- add this
     deleteEventsByType: (eventType: string) => void; // <-- add this
+    //Envelope APIs
     getEnvelopeDisplayName: (envelopeName: string) => string;
+    addEnvelope: (envelope: Envelope) => void;
+    deleteEnvelope: (envelope_id: number) => void;
+    updateEnvelope:  (envelope_id: number, updatedFields: Partial<Envelope>) => void;
     captureVisualizationAsSVG: () => string | null; // <-- add this
     setVisualizationDateRange: (planData: Plan) => void; // <-- add this
     setZoomToDateRange: (startDay: number, endDay: number) => void; // <-- add this
@@ -433,6 +449,10 @@ function getNextEventId(plan: Plan): number {
     const updatingIds = plan.events.flatMap(e => e.updating_events?.map(ue => ue.id) || []);
     const allIds = [...mainIds, ...updatingIds];
     return allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
+}
+
+function getNextEnvelopeID(plan: Plan): number {
+    return plan.envelopes.length > 0 ? plan.envelopes.length + 1 : 1;
 }
 
 // Helper: deep clone a plan to avoid shared references between `plan` and `plan_locked`
@@ -978,7 +998,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
             deleteEventsByType(eventType);
         }
 
-        // --- NEW: Check for envelope parameters and add missing envelopes ---
+        // --- Envelopes use new AddEnvelope logic
         let newEnvelopes = [...plan.envelopes];
         const planEnvelopeNames = newEnvelopes.map(e => e.name);
         eventSchema.parameters.forEach(param => {
@@ -989,7 +1009,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
             ) {
                 const defaultEnvelope = schema.default_envelopes?.find(env => env.name === param.default);
                 if (defaultEnvelope) {
-                    newEnvelopes.push({ ...defaultEnvelope });
+                    // --- Envelopes use new AddEnvelope logic
+                    addEnvelope({ ...defaultEnvelope, envelope_id: 0 }); // Envelope ID will be set in addEnvelope
                     planEnvelopeNames.push(defaultEnvelope.name);
                 }
             }
@@ -1047,7 +1068,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
             const updatedPlan = {
                 ...prevPlan,
                 events: [...prevPlan.events, newEvent],
-                envelopes: newEnvelopes
             };
 
             // Add to history stack after adding event
@@ -1119,7 +1139,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
             if (param.parameter_units === 'envelope' && typeof param.default === 'string' && !planEnvelopeNames.includes(param.default)) {
                 const defaultEnvelope = schema.default_envelopes?.find(env => env.name === param.default);
                 if (defaultEnvelope) {
-                    newEnvelopes.push({ ...defaultEnvelope });
+                    // Change to add envelope
+                    addEnvelope({ ...defaultEnvelope, envelope_id: 0 }); // Envelope ID will be set in addEnvelope
                     planEnvelopeNames.push(defaultEnvelope.name);
                 }
             }
@@ -1157,7 +1178,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
                     }
                     return event;
                 }),
-                envelopes: newEnvelopes
             };
 
             // Add to history stack after adding updating event
@@ -1881,6 +1901,64 @@ export function PlanProvider({ children }: PlanProviderProps) {
         });
     }, [plan]);
 
+
+
+
+    // Envelope APIS
+
+    const addEnvelope = useCallback((envelope: Envelope) => {
+        if (!plan) return;
+        
+        //set envelope id to max existing id + 1
+        envelope.envelope_id = getNextEnvelopeID(plan);
+        
+        setPlan(prevPlan => {
+            if (!prevPlan) return null;
+            const updatedEnvelopes = [...prevPlan.envelopes, envelope];
+            const updatedPlan = { ...prevPlan, envelopes: updatedEnvelopes };
+            
+            // Add to history stack after adding envelope
+            addToStack(updatedPlan);
+            return updatedPlan;
+        });
+    }, [plan, addToStack]);
+
+    const deleteEnvelope = useCallback((envelope_id: number) => {
+        if (!plan) return;
+        
+        setPlan(prevPlan => {
+            if (!prevPlan) return null;
+            const updatedEnvelopes = prevPlan.envelopes.filter(envelope => envelope.envelope_id !== envelope_id);
+            const updatedPlan = { ...prevPlan, envelopes: updatedEnvelopes };
+            
+            // Add to history stack after deleting envelope
+            addToStack(updatedPlan);
+            return updatedPlan;
+        });
+    }, [plan, addToStack]);
+
+    const updateEnvelope = useCallback((envelope_id: number, updatedFields: Partial<Envelope>) => {
+        if (!plan) return;
+        
+        setPlan(prevPlan => {
+            if (!prevPlan) return null;
+            const updatedEnvelopes = prevPlan.envelopes.map(envelope => {
+                if (envelope.envelope_id === envelope_id) {
+                    return { ...envelope, ...updatedFields };
+                }
+                return envelope;
+            });
+            const updatedPlan = { ...prevPlan, envelopes: updatedEnvelopes };
+            
+            // Add to history stack after updating envelope
+            addToStack(updatedPlan);
+            return updatedPlan;
+        });
+    }, [plan, addToStack]);
+
+
+       
+
     const value = {
         plan,
         plan_locked, // <-- add to context value
@@ -1916,9 +1994,13 @@ export function PlanProvider({ children }: PlanProviderProps) {
         copyPlanToLock, // <-- add this
         updateRetirementGoal, // <-- add to context value
         canEventBeRecurring, // <-- add to context value
-        updateEventRecurring, // <-- add to context value
-        hasEventType, // <-- add to context value
-        deleteEventsByType, // <-- add to context value
+        updateEventRecurring, 
+        hasEventType,
+        deleteEventsByType,
+        // Envelope APIs
+        addEnvelope,
+        deleteEnvelope,
+        updateEnvelope, 
         getEnvelopeDisplayName, // <-- add to context value
         captureVisualizationAsSVG, // <-- add to context value
         setVisualizationDateRange, // <-- add to context value

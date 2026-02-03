@@ -3,200 +3,284 @@
     "adjust_for_inflation": true,
     "default_envelopes": [
         {
-            "name": "Other (Cash)",
+            "name": "Cash",
             "category": "Cash",
             "growth": "None",
             "rate": 0,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
-            "name": "Other (Assets)",
-            "category": "Assets",
-            "growth": "Appreciation",
-            "rate": 0.03,
-            "account_type": "regular"
-        },
-        {
-            "name": "Other (Debt)",
-            "category": "Debt",
-            "growth": "Monthly Compound",
-            "rate": 0.04,
-            "account_type": "regular"
-        },
-        {
-            "name": "Other (Savings)",
-            "category": "Savings",
-            "growth": "Daily Compound",
-            "rate": 0.001,
-            "account_type": "regular"
+            "name": "Checking Account",
+            "category": "Cash",
+            "growth": "None",
+            "rate": 0,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "High Yield Savings",
             "category": "Savings",
             "growth": "Daily Compound",
             "rate": 0.02,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
-            "name": "Other (Investments)",
+            "name": "Investment Account",
             "category": "Investments",
-            "growth": "Yearly Compound",
+            "growth": "Daily Compound",
             "rate": 0.07,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
-            "name": "Other (Retirement)",
+            "name": "Roth IRA Account",
             "category": "Retirement",
             "growth": "Yearly Compound",
-            "rate": 0.06,
-            "account_type": "system-controlled"
+            "rate": 0.07,
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "usa_rothira"
+        },
+        {
+            "name": "Traditional IRA Account",
+            "category": "Retirement",
+            "growth": "Yearly Compound",
+            "rate": 0.07,
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "usa_traditionalira"
+        },
+        {
+            "name": "401K Account",
+            "category": "Retirement",
+            "growth": "Yearly Compound",
+            "rate": 0.07,
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "usa_401k"
+        },
+        {
+            "name": "House Equity",
+            "category": "Assets",
+            "growth": "Appreciation",
+            "rate": 0.03,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Car Value",
+            "category": "Assets",
+            "growth": "Depreciation",
+            "rate": 0.15,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "House",
             "category": "Assets",
             "growth": "Appreciation",
             "rate": 0.03,
-            "account_type": "regular"
-        },
-        {
-            "name": "RothIRA",
-            "category": "Retirement",
-            "growth": "Yearly Compound",
-            "rate": 0.07,
-            "account_type": "system-controlled"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Car",
             "category": "Assets",
             "growth": "Depreciation",
             "rate": 0.15,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Other (Cash)",
+            "category": "Cash",
+            "growth": "None",
+            "rate": 0,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Other (Assets)",
+            "category": "Assets",
+            "growth": "Appreciation",
+            "rate": 0.03,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Other (Debt)",
+            "category": "Debt",
+            "growth": "Monthly Compound",
+            "rate": 0.04,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Other (Savings)",
+            "category": "Savings",
+            "growth": "Daily Compound",
+            "rate": 0.001,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Other (Investments)",
+            "category": "Investments",
+            "growth": "Yearly Compound",
+            "rate": 0.07,
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
+        },
+        {
+            "name": "Other (Retirement)",
+            "category": "Retirement",
+            "growth": "Yearly Compound",
+            "rate": 0.06,
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Laptop",
             "category": "Assets",
             "growth": "Depreciation (Days)",
             "days_of_usefulness": 1460,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Car Loan",
             "category": "Debt",
             "growth": "Monthly Compound",
             "rate": 0.05,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Home Mortgage",
             "category": "Debt",
             "growth": "Monthly Compound",
             "rate": 0.05,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Student Loans Subsidized (During School)",
             "category": "Debt",
             "growth": "None",
             "rate": 0.0,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Student Loans",
             "category": "Debt",
             "growth": "Monthly Compound",
             "rate": 0.065,
-            "account_type": "regular"
+            "account_type": "regular",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Taxable Income",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "401K Taxes",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "system-controlled"
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Federal Withholdings",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "State Withholdings",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Local Withholdings",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "401K Withdraw Withholding",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "401K Withdraw",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "401K Penalty",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "system-controlled"
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "ROTH IRA Withdraw",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "ROTH IRA Principle",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "ROTH IRA Penalty",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "system-controlled"
+            "account_type": "system-controlled",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Short Term Capital Gains",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         },
         {
             "name": "Long Term Capital Gains",
             "category": "Debt",
             "growth": "None",
             "rate": 0,
-            "account_type": "non-networth-account"
+            "account_type": "non-networth-account",
+            "tax_accoutnt_type": "none"
         }
     ],
     "account_types": [
