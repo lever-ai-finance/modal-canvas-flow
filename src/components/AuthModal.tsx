@@ -239,7 +239,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSignIn, mode, 
 
       {/* Main Auth Modal */}
       <Dialog open={isOpen} onOpenChange={(open) => {
-        console.log('Dialog open state changing to:', open);
         if (!open) onClose();
       }}>
         <DialogContent className="sm:max-w-md">

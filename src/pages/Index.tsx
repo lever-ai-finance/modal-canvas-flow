@@ -68,7 +68,7 @@ export default function Index() {
   const [errorMessage, setErrorMessage] = useState('');
   const [addEnvelopeModalOpen, setAddEnvelopeModalOpen] = useState(false);
   const [envelopeManagerModalOpen, setEnvelopeManagerModalOpen] = useState(false);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(true);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
@@ -130,12 +130,23 @@ export default function Index() {
     }
   }, [user, showPostSignInModals]); // Depend on user state to ensure it runs when user is loaded
 
+
+  useEffect(() => {
+    const onboardingDone = localStorage.getItem('onboarding-modal-done');
+    if (onboardingDone === 'true') {
+      setOnboardingOpen(false);
+    } else {
+      setOnboardingOpen(true);
+    }
+  }, []);
+
   // Check for Stripe return on app startup
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const sessionId = urlParams.get('session_id');
 
+  
     if (success === 'true' && sessionId) {
       // Clear the URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -144,14 +155,6 @@ export default function Index() {
     }
   }, []); // Empty dependency array means this runs once on mount
 
-  // Auto-open onboarding modal when at user_info stage
-  useEffect(() => {
-    // Only proceed if we're not loading and the onboarding state is user_info
-    if (!isLoading && onboarding_state === 'user_info') {
-      // Wait for 1 second after the state is loaded before opening the modal
-      setOnboardingOpen(true);
-    }
-  }, [isLoading, onboarding_state]);
 
   const handleAnnotationClick = (eventId: number) => {
     setEditingEventId(eventId);
@@ -340,10 +343,10 @@ export default function Index() {
 
   // Modify the event library open handler
   const handleEventLibraryOpen = (dayOffset?: number) => {
-    checkViewingMode(() => {
+    // checkViewingMode(() => {
       setSelectedDayOffset(dayOffset);
       setEventLibraryOpen(true);
-    });
+    // });
   };
 
   // Handler for visualization click
@@ -605,7 +608,7 @@ export default function Index() {
       />
       <AuthModal
         isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        onClose={() => setAuthModalOpen(true)} // dont let user click out of auth modal
         onSignIn={() => {
           setAuthModalOpen(false);
           setTimeout(() => {
@@ -689,6 +692,7 @@ export default function Index() {
           setOnboardingOpen(false);
           setAuthModalMode('signUp'); // <-- set to sign up
           setAuthModalOpen(true);
+          localStorage.setItem('onboarding-modal-done', 'true');
         }}
         onAddEventAndEditParams={(eventType) => {
           const newId = addEvent(eventType);

@@ -606,6 +606,14 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     );
   }
 
+  const handleSkipToLogin = async () => {
+    try {
+      await logAnonymousButtonClick?.('skip_to_login');
+    } catch (e) { }
+    setCurrentStep(totalSteps - 1);
+    onAuthRequired?.();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={() => { }}>
       <DialogContent className="sm:max-w-2xl max-w-4xl mx-8">
@@ -629,6 +637,23 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
         <div className="py-8 px-2">
           {currentStepData.content}
         </div>
+
+        {/* Subtle Skip-to-login button on first step (Account Balances) */}
+        {currentStep === 0 && (
+          <div className="absolute left-4 bottom-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleSkipToLogin();
+              }}
+            >
+              Skip to login
+            </Button>
+          </div>
+        )}
 
         <div className="flex justify-between pt-6">
           {currentStep > 0 && (
