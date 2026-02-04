@@ -683,6 +683,7 @@ export default function Index() {
         isOpen={onboardingOpen}
         onComplete={() => {
           setOnboardingOpen(false);
+          
         }}
         onAuthRequired={() => {
           setOnboardingOpen(false);
@@ -692,6 +693,20 @@ export default function Index() {
         onAddEventAndEditParams={(eventType) => {
           const newId = addEvent(eventType);
           setEditingEventId(newId);
+          setEventParametersOpen(true);
+        }}
+        onOpenEnvelope={(env, isAdding) => {
+          setEditingEnvelope(env);
+          setAddEnvelopeModalOpen(true);
+          setIsAddingEnvelope(!!isAdding);
+        }}
+        onOpenEvent={(event, isAdding) => {
+          if (isAdding) {
+            const newId = addEvent(event.type);
+            setEditingEventId(newId);
+          } else if (event) {
+            setEditingEventId(event.id);
+          }
           setEventParametersOpen(true);
         }}
       />
@@ -740,8 +755,7 @@ export default function Index() {
         featureIcon={Receipt}
       />
 
-      {/* Onboarding Progress Component - shows after modal completion */}
-      {onboarding_state !== 'full' && (
+      {!isOnboardingAtOrAbove('full') && (
         <OnboardingProgress
           onAuthRequired={() => {
             // localStorage.setItem('onboarding-completed', 'true');

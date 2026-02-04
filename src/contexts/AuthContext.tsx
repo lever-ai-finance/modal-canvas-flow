@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [onboarding_state, setOnboardingState] = useState<OnboardingState>('user_info');
+    const [onboarding_state, setOnboardingState] = useState<OnboardingState>('full');
 
     // Helper function to check if current onboarding state is at or above required level
     const isOnboardingAtOrAbove = (requiredState: OnboardingState) => {
@@ -120,6 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const advanceOnboardingStage = async () => {
+        //check if already at max stage
+        if (onboarding_state === 'developer') {
+            return onboarding_state;
+        }
         const nextStage = getOnboardingStateNumber(onboarding_state) + 1;
         const newState = getOnboardingStateFromNumber(nextStage);
         await updateOnboardingState(newState as OnboardingState);
@@ -229,6 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Load onboarding state on initialization
     useEffect(() => {
         const loadOnboardingState = async () => {
+            return;
             //console.log('🚀 INITIALIZING ONBOARDING STATE FROM DB...');
             try {
                 // This will create anon_key if it doesn't exist

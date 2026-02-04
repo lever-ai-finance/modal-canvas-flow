@@ -13,15 +13,19 @@ import { usePlan } from '../contexts/PlanContext';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import DatePicker from './DatePicker';
-import EditEnvelopeModal from './EditEnvelopeModal';
+// EditEnvelopeModal is provided by the parent; onboarding will call it via `onOpenEnvelope` prop
 import { CATEGORY_BASE_COLORS } from '../visualization/viz_utils';
+import type { Envelope, SchemaEvent, Event } from '../contexts/PlanContext';
 
 
 interface OnboardingFlowProps {
   isOpen: boolean;
   onComplete: () => void;
-  onAuthRequired: () => void;
-  onAddEventAndEditParams: (eventType: string) => void;
+  onAuthRequired?: () => void;
+  onAddEventAndEditParams?: (eventType: string) => void;
+  // Called by onboarding to open the shared EditEnvelopeModal in the parent
+  onOpenEnvelope?: (envelope: Envelope, isAdding?: boolean) => void;
+  onOpenEvent?: (event: any | null, isAdding?: boolean) => void;
 }
 
 interface OnboardingData {
@@ -37,7 +41,7 @@ interface OnboardingData {
 
 //
 
-const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) => {
+const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onAuthRequired, onOpenEnvelope, onOpenEvent }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData & { _currentStep?: number }>({
     goals: [],
@@ -52,9 +56,10 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
   });
   const [loading, setLoading] = useState(true);
   const { upsertAnonymousOnboarding, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
-  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, addEvent} = usePlan();
+  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon} = usePlan();
 
   const [selectedDefaultEnvelope, setSelectedDefaultEnvelope] = useState<string>('');
+  const [selectedDefaultEvent, setSelectedDefaultEvent] = useState<string>('');
   const [accounts, setAccounts] = useState<Record<string, number>>(() => {
     // initialize from plan if available on first render
     const init: Record<string, number> = {};
@@ -65,8 +70,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
     } catch (e) { }
     return init;
   });
-  const [editEnvelopeOpen, setEditEnvelopeOpen] = useState(false);
-  const [envelopeBeingEdited, setEnvelopeBeingEdited] = useState<any | null>(null);
+  // Modal state managed by parent. Onboarding will call `onOpenEnvelope(envelope, isAdding)`.
 
   const updateAccount = (key: string, value: number) => {
     setAccounts(prev => ({ ...prev, [key]: value }));
@@ -98,12 +102,12 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, currentStep]);
 
-  const totalSteps = 2;  // Reduced to only the first 4 steps
+  const totalSteps = 4;
 
   const handleNext = async () => {
 
     // After step 3 (personal info), save all user data to plan
-    if (currentStep === 3) {
+    if (currentStep === 4) {
       // Check for invalid birth date or today or in the future
       if (data.birthDate === '' || data.birthDate === new Date().toISOString().split('T')[0] || data.birthDate > new Date().toISOString().split('T')[0]) {
         toast.error('Please enter a valid birth date');
@@ -167,12 +171,11 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
       setCurrentStep(currentStep + 1);
     } else {
       // When completing the modal, transition from 'user_info' to 'basics' to start progressive access
-      console.log('🎯 MODAL COMPLETED - Transitioning from user_info to basics');
       if (logAnonymousButtonClick) {
         await logAnonymousButtonClick('modal_completed');
       }
       // Close the modal and let the user continue with progressive onboarding
-      onComplete();
+      onAuthRequired!();
     }
   };
 
@@ -181,26 +184,6 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
       setCurrentStep(currentStep - 1);
     }
   };
-
-  const handleGoalToggle = (goal: string) => {
-    setData(prev => ({
-      ...prev,
-      goals: prev.goals.includes(goal)
-        ? prev.goals.filter(g => g !== goal)
-        : [...prev.goals, goal]
-    }));
-  };
-
-  const handleFinancialGoalToggle = (goal: string) => {
-    setData(prev => ({
-      ...prev,
-      financialGoals: prev.financialGoals.includes(goal)
-        ? prev.financialGoals.filter(g => g !== goal)
-        : [...prev.financialGoals, goal]
-    }));
-  };
-
-
 
   const steps = [
     // Step 1: Account Balances
@@ -243,7 +226,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
           {/* List of plan envelopes with balance inputs */}
           <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
             <div className="flex-grow overflow-y-auto space-y-4 pr-2">
-              {(plan?.envelopes || []).map((env: any) => (
+              {(plan?.envelopes || []).map((env: Envelope) => (
                 <Card key={env.name} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-start space-x-4">
@@ -279,7 +262,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
                         </div>
                         <div
                           className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100 cursor-pointer hover:bg-gray-100"
-                          onClick={() => { setEnvelopeBeingEdited(env); setEditEnvelopeOpen(true); }}
+                          onClick={() => { onOpenEnvelope?.(env, false); }}
                         >
                           {env.growth === 'None' ? (
                             <span className="font-mono">No growth over time</span>
@@ -306,12 +289,12 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
                           className="w-32 text-right"
                         />
                       </div>
-                      <Button
+                        <Button
                         type="button"
                         size="icon"
                         variant="ghost"
                         className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
-                        onClick={() => { setEnvelopeBeingEdited(env); setEditEnvelopeOpen(true); }}
+                        onClick={() => { onOpenEnvelope?.(env, false); }}
                         aria-label="Manage envelope"
                       >
                         <Pencil className="w-4 h-4" />
@@ -348,29 +331,180 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
         </div>
       )
     },
-    // Step 3: Financial Goals
     {
-      title: "What are your financial goals?",
+      title: "Cash Flow",
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground text-center mb-6">
-            What are you working towards?
-          </p>
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              { id: 'house', label: 'Buying a House', icon: Home },
-              { id: 'retirement', label: 'Retiring Comfortably', icon: PiggyBank },
-              { id: 'vacation', label: 'Dream Vacation', icon: Plane },
-              { id: 'aspirations', label: 'Other Financial Aspirations', icon: Target }
-            ].map(({ id, label, icon: Icon }) => (
-              <Card key={id} className={`cursor-pointer transition-all ${data.financialGoals.includes(id) ? 'ring-2 ring-[#03c6fc] bg-[#03c6fc]/5' : 'hover:bg-muted/50'}`} onClick={() => handleFinancialGoalToggle(id)}>
-                <CardContent className="flex items-center p-4">
-                  <Icon className="w-5 h-5 mr-3 text-[#03c6fc]" />
-                  <span className="flex-1">{label}</span>
-                  <Checkbox checked={data.financialGoals.includes(id)} />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
+            <span className="text-sm text-muted-foreground mr-2">Add Cash Flow Event:</span>
+            <div className="flex-1">
+              <Select
+                value={selectedDefaultEvent}
+                onValueChange={(val) => {
+                  setSelectedDefaultEvent(val);
+                  const event = schema?.events?.find((d: SchemaEvent) => d.type === val);
+                  if (event) onOpenEvent?.(event, true);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Event..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {schema?.events?.filter((env: SchemaEvent) => ['inflow', 'outflow', 'monthly_budgeting', 'get_job', 'get_wage_job'].includes(env.type))
+                    .map((event: SchemaEvent) => (
+                      <SelectItem key={event.type} value={event.type}>{event.display_type}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* List of plan events inputs */}
+          <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
+            <div className="flex-grow overflow-y-auto space-y-4 pr-2">
+              {(plan?.events || []).map((event: Event) => (
+                <Card key={event.type} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-start space-x-4 min-w-0">
+                      <div
+                        className="p-2 rounded-lg flex-shrink-0"
+                        style={{
+                          backgroundColor: (CATEGORY_BASE_COLORS['Cash']) + '22',
+                          border: `2px solid '#c7d2fe'`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '2rem',
+                          height: '2rem',
+                        }}
+                      >
+                        {getEventIcon(event.type, event)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col">
+                          <h3 className="font-semibold truncate">{event.title}</h3>
+                          {event.description && (
+                            <p className="text-sm text-muted-foreground mt-1 truncate">{event.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-4 flex items-center space-x-2 flex-shrink-0">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
+                        onClick={() => { onOpenEvent?.(event, false); }}
+                        aria-label="Manage envelope"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="p-1 h-8 w-8 text-gray-400 hover:text-red-600"
+                        onClick={() => { if (event.id !== undefined) deleteEvent(event.id); }}
+                        aria-label="Delete envelope"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    },
+        {
+      title: "Debt and Loan Repayments",
+      content: (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
+            <span className="text-sm text-muted-foreground mr-2">Add Cash Flow Event:</span>
+            <div className="flex-1">
+              <Select
+                value={selectedDefaultEvent}
+                onValueChange={(val) => {
+                  setSelectedDefaultEvent(val);
+                  const event = schema?.events?.find((d: SchemaEvent) => d.type === val);
+                  if (event) onOpenEvent?.(event, true);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Event..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {schema?.events?.filter((env: SchemaEvent) => ['loan'].includes(env.type))
+                    .map((event: SchemaEvent) => (
+                      <SelectItem key={event.type} value={event.type}>{event.display_type}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* List of plan events inputs */}
+          <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
+            <div className="flex-grow overflow-y-auto space-y-4 pr-2">
+              {(plan?.events || []).map((event: Event) => (
+                <Card key={event.type} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-start space-x-4 min-w-0">
+                      <div
+                        className="p-2 rounded-lg flex-shrink-0"
+                        style={{
+                          backgroundColor: (CATEGORY_BASE_COLORS['Debt']) + '22',
+                          border: `2px solid '#c7d2fe'`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '2rem',
+                          height: '2rem',
+                        }}
+                      >
+                        {getEventIcon(event.type, event)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col">
+                          <h3 className="font-semibold truncate">{event.title}</h3>
+                          {event.description && (
+                            <p className="text-sm text-muted-foreground mt-1 truncate">{event.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-4 flex items-center space-x-2 flex-shrink-0">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
+                        onClick={() => { onOpenEvent?.(event, false); }}
+                        aria-label="Manage envelope"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="p-1 h-8 w-8 text-gray-400 hover:text-red-600"
+                        onClick={() => { if (event.id !== undefined) deleteEvent(event.id); }}
+                        aria-label="Delete envelope"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       )
@@ -512,17 +646,6 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete }) =
           </Button>
         </div>
       </DialogContent>
-      <EditEnvelopeModal
-        isOpen={editEnvelopeOpen}
-        onClose={() => { setEditEnvelopeOpen(false); setEnvelopeBeingEdited(null); }}
-        envelope={envelopeBeingEdited}
-        onSave={(env) => {
-          // Keep API access available: call updateEnvelope from context
-          updateEnvelope(env.envelope_id!, env);
-          setEditEnvelopeOpen(false);
-          setEnvelopeBeingEdited(null);
-        }}
-      />
     </Dialog>
   );
 };

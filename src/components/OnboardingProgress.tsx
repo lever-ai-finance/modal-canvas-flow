@@ -101,7 +101,7 @@ const OnboardingProgress: React.FC<OnboardingProgressProps> = ({ className = '',
     }
 
     // Set the clicked stage as the current stage
-    await updateOnboardingState(stageKey as OnboardingState);
+    //await updateOnboardingState(stageKey as OnboardingState);
 
     // Collapse the modal after clicking a valid stage
     setIsExpanded(false);
