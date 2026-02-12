@@ -8,7 +8,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Checking Account",
@@ -16,7 +16,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "High Yield Savings",
@@ -24,7 +24,7 @@
             "growth": "Daily Compound",
             "rate": 0.02,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Investment Account",
@@ -32,31 +32,31 @@
             "growth": "Daily Compound",
             "rate": 0.07,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Roth IRA Account",
             "category": "Retirement",
             "growth": "Yearly Compound",
             "rate": 0.07,
-            "account_type": "system-controlled",
-            "tax_accoutnt_type": "usa_rothira"
+            "account_type": "regular",
+            "tax_account_type": "usa_rothira"
         },
         {
             "name": "Traditional IRA Account",
             "category": "Retirement",
             "growth": "Yearly Compound",
             "rate": 0.07,
-            "account_type": "system-controlled",
-            "tax_accoutnt_type": "usa_traditionalira"
+            "account_type": "regular",
+            "tax_account_type": "usa_traditionalira"
         },
         {
             "name": "401K Account",
             "category": "Retirement",
             "growth": "Yearly Compound",
             "rate": 0.07,
-            "account_type": "system-controlled",
-            "tax_accoutnt_type": "usa_401k"
+            "account_type": "regular",
+            "tax_account_type": "usa_401k"
         },
         {
             "name": "House Equity",
@@ -64,7 +64,7 @@
             "growth": "Appreciation",
             "rate": 0.03,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Car Value",
@@ -72,7 +72,7 @@
             "growth": "Depreciation",
             "rate": 0.15,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "House",
@@ -80,7 +80,7 @@
             "growth": "Appreciation",
             "rate": 0.03,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Car",
@@ -88,7 +88,7 @@
             "growth": "Depreciation",
             "rate": 0.15,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Other (Cash)",
@@ -96,7 +96,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Other (Assets)",
@@ -104,7 +104,7 @@
             "growth": "Appreciation",
             "rate": 0.03,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Other (Debt)",
@@ -112,7 +112,7 @@
             "growth": "Monthly Compound",
             "rate": 0.04,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Other (Savings)",
@@ -120,7 +120,7 @@
             "growth": "Daily Compound",
             "rate": 0.001,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Other (Investments)",
@@ -128,15 +128,15 @@
             "growth": "Yearly Compound",
             "rate": 0.07,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Other (Retirement)",
             "category": "Retirement",
             "growth": "Yearly Compound",
             "rate": 0.06,
-            "account_type": "system-controlled",
-            "tax_accoutnt_type": "none"
+            "account_type": "regular",
+            "tax_account_type": "none"
         },
         {
             "name": "Laptop",
@@ -144,7 +144,7 @@
             "growth": "Depreciation (Days)",
             "days_of_usefulness": 1460,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Car Loan",
@@ -152,7 +152,7 @@
             "growth": "Monthly Compound",
             "rate": 0.05,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Home Mortgage",
@@ -160,7 +160,7 @@
             "growth": "Monthly Compound",
             "rate": 0.05,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Student Loans Subsidized (During School)",
@@ -168,7 +168,7 @@
             "growth": "None",
             "rate": 0.0,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Student Loans",
@@ -176,7 +176,7 @@
             "growth": "Monthly Compound",
             "rate": 0.065,
             "account_type": "regular",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Taxable Income",
@@ -184,7 +184,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "401K Taxes",
@@ -192,7 +192,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "system-controlled",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Federal Withholdings",
@@ -200,7 +200,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "State Withholdings",
@@ -208,7 +208,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Local Withholdings",
@@ -216,7 +216,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "401K Withdraw Withholding",
@@ -224,7 +224,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "401K Withdraw",
@@ -232,7 +232,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "401K Penalty",
@@ -240,7 +240,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "system-controlled",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "ROTH IRA Withdraw",
@@ -248,7 +248,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "ROTH IRA Principle",
@@ -256,7 +256,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "ROTH IRA Penalty",
@@ -264,7 +264,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "system-controlled",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Short Term Capital Gains",
@@ -272,7 +272,7 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         },
         {
             "name": "Long Term Capital Gains",
@@ -280,14 +280,18 @@
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
-            "tax_accoutnt_type": "none"
+            "tax_account_type": "none"
         }
+    ],
+    "tax_account_types": [
+        {"name": "None", "value": "none"},
+        {"name": "ROTH IRA", "value": "usa_rothira"},
+        {"name": "Traditional IRA", "value": "usa_traditionalira"},
+        {"name": "401K", "value": "usa_401k"}
     ],
     "account_types": [
         "regular",
         "system-controlled",
-        "rothira",
-        "401k",
         "non-networth-account"
     ],
     "birth_date": "2001-09-11",
@@ -1076,6 +1080,98 @@
                     "parameter_units": "envelope",
                     "description": "Envelope to be adjusted.",
                     "default": "Other (Cash)",
+                    "editable": true
+                }
+            ]
+        },
+        {
+            "type": "payment_schedule",
+            "display_type": "Loan Payments",
+            "display_event": false,
+            "is_recurring": true,
+            "can_be_reocurring": true,
+            "weight": 100,
+            "category": "Debt",
+            "description": "Pay off a loan with reocurring payments.",
+            "icon": "credit-card",
+            "disclaimer": "This event takes the balance declared then pays off until the final day.",
+            "event_functions_parts": [
+                {
+                    "type": "pay_off_loan",
+                    "title": "Pay Off Loan",
+                    "description": "Simulate the debt being paid off by your debt payments",
+                    "icon": "credit-card",
+                    "default_state": true
+                },
+                {
+                    "type": "debt_payments",
+                    "title": "Debt Payments",
+                    "description": "Simulate reocurring debt payments out of the From Envelope on an amoratization schedule",
+                    "icon": "credit-card",
+                    "default_state": true
+                },
+                {
+                    "type": "deposit_debt",
+                    "title": "Deposit Debt",
+                    "description": "Simulate the loan being deposited into the From Envelope",
+                    "icon": "credit-card",
+                    "default_state": true
+                },
+                {
+                    "type": "final_payment_correction",
+                    "title": "Final Payment Correction",
+                    "description": "Simulate a small correction on the final payment due to ammoratization schedule inaccuracies",
+                    "icon": "credit-card",
+                    "default_state": true
+                }
+            ],
+            "parameters": [
+                {
+                    "type": "start_time",
+                    "display_name": "Start Date",
+                    "parameter_units": "date",
+                    "description": "When the loan starts",
+                    "default": 0,
+                    "editable": true
+                },
+                {
+                    "type": "end_time",
+                    "display_name": "End Date",
+                    "parameter_units": "date",
+                    "description": "When the recurring loan ends",
+                    "default": 3650,
+                    "editable": false
+                },
+                {
+                    "type": "frequency_days",
+                    "display_name": "Frequency (Days)",
+                    "parameter_units": "days",
+                    "description": "Number of days between each loan occurrence ",
+                    "default": 365,
+                    "editable": true
+                },
+                {
+                    "type": "payment",
+                    "display_name": "Payment Amount",
+                    "parameter_units": "usd",
+                    "description": "Amount of each payment towards the loan",
+                    "default": 100,
+                    "editable": true
+                },
+                {
+                    "type": "to_key",
+                    "display_name": "To Envelope",
+                    "parameter_units": "envelope",
+                    "description": "The loan that you are paying off",
+                    "default": "Other (Cash)",
+                    "editable": true
+                },
+                {
+                    "type": "from_key",
+                    "display_name": "From Envelope",
+                    "parameter_units": "envelope",
+                    "description": "From what account are you paying it from",
+                    "default": "Other (Debt)",
                     "editable": true
                 }
             ]

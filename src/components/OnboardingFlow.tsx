@@ -17,15 +17,13 @@ import DatePicker from './DatePicker';
 import { CATEGORY_BASE_COLORS } from '../visualization/viz_utils';
 import type { Envelope, SchemaEvent, Event } from '../contexts/PlanContext';
 
-
 interface OnboardingFlowProps {
   isOpen: boolean;
   onComplete: () => void;
   onAuthRequired?: () => void;
-  onAddEventAndEditParams?: (eventType: string) => void;
   // Called by onboarding to open the shared EditEnvelopeModal in the parent
   onOpenEnvelope?: (envelope: Envelope, isAdding?: boolean) => void;
-  onOpenEvent?: (event: any | null, isAdding?: boolean) => void;
+  onOpenEvent?: (event: any | null, isAdding?: boolean, eventParams?: any) => void;
 }
 
 interface OnboardingData {
@@ -205,7 +203,9 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                 onValueChange={(val) => {
                   setSelectedDefaultEnvelope('');
                   const env = schema?.default_envelopes?.find((d: any) => d.name === val);
-                  if (env) addEnvelope(env);
+                  if (env) {
+                      onOpenEnvelope?.(env, true);
+                  }
                 }}
               >
                 <SelectTrigger className="w-full">
@@ -213,8 +213,8 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                 </SelectTrigger>
                 <SelectContent>
                   {schema?.default_envelopes
-                    ?.filter((env: any) => ['regular', 'system-controlled'].includes(env.account_type)
-                      && ['Cash', 'Checking Account', 'High Yield Savings', 'Investment Account', 'Roth IRA Account', '401K Account', 'House Equity', 'Car Value'].includes(env.name))
+                    ?.filter((env: any) => ['regular'].includes(env.account_type)
+                      && ['Cash', 'Checking Account', 'High Yield Savings', 'Investment Account', 'Roth IRA Account', '401K Account', 'House Equity', 'Car Value', 'Car Loan', 'Home Mortgage', 'Student Loans'].includes(env.name))
                     .map((env: any) => (
                       <SelectItem key={env.name} value={env.name}>{env.name}</SelectItem>
                     ))}
@@ -226,7 +226,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
           {/* List of plan envelopes with balance inputs */}
           <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
             <div className="flex-grow overflow-y-auto space-y-4 pr-2">
-              {(plan?.envelopes || []).map((env: Envelope) => (
+              {(plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).map((env: Envelope) => (
                 <Card key={env.name} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-start space-x-4">
@@ -258,6 +258,11 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{env.name}</h3>
+                          {env.tax_account_type && env.tax_account_type !== 'none' && (
+                            <span className="ml-2 text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">
+                              {schema?.tax_account_types?.find((t: any) => t.value === env.tax_account_type)?.name || env.tax_account_type}
+                            </span>
+                          )}
                           <span className="text-xs text-gray-500">{env.category}</span>
                         </div>
                         <div

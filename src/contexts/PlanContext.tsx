@@ -303,6 +303,7 @@ export interface Schema {
     occupation: string;
     goals: string;
     categories: string[];
+    tax_account_types: { name: string; value: string }[];
     parameter_units_list: string[];
     events: SchemaEvent[];
     default_envelopes?: SchemaEnvelope[];
@@ -992,22 +993,22 @@ export function PlanProvider({ children }: PlanProviderProps) {
         }
 
         // --- Envelopes use new AddEnvelope logic
-        let newEnvelopes = [...plan.envelopes];
-        const planEnvelopeNames = newEnvelopes.map(e => e.name);
-        eventSchema.parameters.forEach(param => {
-            if (
-                param.parameter_units === 'envelope' &&
-                typeof param.default === 'string' &&
-                !planEnvelopeNames.includes(param.default)
-            ) {
-                const defaultEnvelope = schema.default_envelopes?.find(env => env.name === param.default);
-                if (defaultEnvelope) {
-                    // --- Envelopes use new AddEnvelope logic
-                    addEnvelope({ ...defaultEnvelope, envelope_id: 0 }); // Envelope ID will be set in addEnvelope
-                    planEnvelopeNames.push(defaultEnvelope.name);
-                }
-            }
-        });
+        // let newEnvelopes = [...plan.envelopes];
+        // const planEnvelopeNames = newEnvelopes.map(e => e.name);
+        // eventSchema.parameters.forEach(param => {
+        //     if (
+        //         param.parameter_units === 'envelope' &&
+        //         typeof param.default === 'string' &&
+        //         !planEnvelopeNames.includes(param.default)
+        //     ) {
+        //         const defaultEnvelope = schema.default_envelopes?.find(env => env.name === param.default);
+        //         if (defaultEnvelope) {
+        //             // --- Envelopes use new AddEnvelope logic
+        //             addEnvelope({ ...defaultEnvelope, envelope_id: 0 }); // Envelope ID will be set in addEnvelope
+        //             planEnvelopeNames.push(defaultEnvelope.name);
+        //         }
+        //     }
+        // });
 
         // Generate a new unique ID
         const newId = getNextEventId(plan);
@@ -1126,18 +1127,18 @@ export function PlanProvider({ children }: PlanProviderProps) {
         });
 
         // --- NEW: Check for envelope parameters and add missing envelopes ---
-        let newEnvelopes = [...plan.envelopes];
-        const planEnvelopeNames = newEnvelopes.map(e => e.name);
-        updatingEventSchema.parameters.forEach(param => {
-            if (param.parameter_units === 'envelope' && typeof param.default === 'string' && !planEnvelopeNames.includes(param.default)) {
-                const defaultEnvelope = schema.default_envelopes?.find(env => env.name === param.default);
-                if (defaultEnvelope) {
-                    // Change to add envelope
-                    addEnvelope({ ...defaultEnvelope, envelope_id: 0 }); // Envelope ID will be set in addEnvelope
-                    planEnvelopeNames.push(defaultEnvelope.name);
-                }
-            }
-        });
+        // let newEnvelopes = [...plan.envelopes];
+        // const planEnvelopeNames = newEnvelopes.map(e => e.name);
+        // updatingEventSchema.parameters.forEach(param => {
+        //     if (param.parameter_units === 'envelope' && typeof param.default === 'string' && !planEnvelopeNames.includes(param.default)) {
+        //         const defaultEnvelope = schema.default_envelopes?.find(env => env.name === param.default);
+        //         if (defaultEnvelope) {
+        //             // Change to add envelope
+        //             addEnvelope({ ...defaultEnvelope, envelope_id: 0 }); // Envelope ID will be set in addEnvelope
+        //             planEnvelopeNames.push(defaultEnvelope.name);
+        //         }
+        //     }
+        // });
 
         // Create event functions from schema if they exist
         const updatingEventFunctions = updatingEventSchema.event_functions_parts?.map(func => ({
@@ -1893,9 +1894,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
             return { ...prevPlan, events: updatedEvents };
         });
     }, [plan]);
-
-
-
 
     // Envelope APIS
 

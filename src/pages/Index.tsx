@@ -694,19 +694,14 @@ export default function Index() {
           setAuthModalOpen(true);
           localStorage.setItem('onboarding-modal-done', 'true');
         }}
-        onAddEventAndEditParams={(eventType) => {
-          const newId = addEvent(eventType);
-          setEditingEventId(newId);
-          setEventParametersOpen(true);
-        }}
         onOpenEnvelope={(env, isAdding) => {
           setEditingEnvelope(env);
           setAddEnvelopeModalOpen(true);
           setIsAddingEnvelope(!!isAdding);
         }}
-        onOpenEvent={(event, isAdding) => {
+        onOpenEvent={(event, isAdding, eventParams) => {
           if (isAdding) {
-            const newId = addEvent(event.type);
+            const newId = addEvent(event.type, eventParams);
             setEditingEventId(newId);
           } else if (event) {
             setEditingEventId(event.id);

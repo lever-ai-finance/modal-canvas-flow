@@ -17,6 +17,7 @@ interface EditEnvelopeModalProps {
     rate: number;
     days_of_usefulness?: number;
     account_type: string;
+    tax_account_type: string;
     } | null;
   onSave: (envelope: Envelope) => void;
 }
@@ -29,14 +30,9 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
   const [rateInputValue, setRateInputValue] = useState(envelope ? (envelope.rate * 100).toString() : '0');
   const [daysOfUsefulness, setDaysOfUsefulness] = useState(envelope?.days_of_usefulness || 0);
   const [rateError, setRateError] = useState<string>('');
+  const [taxAccountType, setTaxAccountType] = useState(envelope?.tax_account_type || 'none');
 
   const { schema } = usePlan();
-
-  // Check if this is a non-editable envelope (Other envelope or non-regular account_type)
-  const isNonEditableEnvelope = envelope && (
-    envelope.account_type !== 'regular' ||
-    envelope.name.startsWith('Other (')
-  );
 
   React.useEffect(() => {
     setName(envelope?.name || '');
@@ -47,6 +43,7 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
     setRateInputValue(initialRate.toString());
     setDaysOfUsefulness(envelope?.days_of_usefulness || 0);
     setRateError('');
+    setTaxAccountType(envelope?.tax_account_type || 'none');
   }, [envelope, isOpen]);
 
   const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,6 +55,46 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
   const handleRateBlur = () => {
     const numValue = parseFloat(rateInputValue) || 0;
     setRate(numValue);
+  };
+
+  const lastSavedRef = React.useRef<number | null>(null);
+
+  const saveEnvelope = (shouldClose = false): boolean => {
+    if (!name.trim() || !category) return false;
+
+    const rateValidation = validateRate(rate);
+    if (!rateValidation.isValid) {
+      setRateError(rateValidation.error || '');
+      return false;
+    }
+
+    const payload: { name: string; category: string; growth: string; rate: number; days_of_usefulness?: number; account_type: string; tax_account_type: string } = {
+      name: name.trim(),
+      category,
+      growth,
+      rate: rate / 100,
+      account_type: envelope?.account_type || 'regular',
+      tax_account_type: taxAccountType
+    };
+    if (growth === 'Depreciation (Days)') {
+      payload.days_of_usefulness = daysOfUsefulness;
+    }
+
+    onSave(payload);
+
+    // reset local state similar to explicit submit
+    setName('');
+    setCategory('');
+    setGrowth('None');
+    setRate(0);
+    setRateInputValue('0');
+    setDaysOfUsefulness(0);
+    setRateError('');
+    setTaxAccountType('none');
+
+    lastSavedRef.current = Date.now();
+    if (shouldClose) onClose();
+    return true;
   };
 
   const validateRate = (rateValue: number): { isValid: boolean; error?: string } => {
@@ -72,34 +109,7 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !category) return;
-
-    // Validate rate before submitting
-    const rateValidation = validateRate(rate);
-    if (!rateValidation.isValid) {
-      setRateError(rateValidation.error || '');
-      return;
-    }
-
-    const payload: { name: string; category: string; growth: string; rate: number; days_of_usefulness?: number; account_type: string } = {
-      name: name.trim(),
-      category,
-      growth,
-      rate: rate / 100,
-      account_type: envelope?.account_type || 'regular'
-    };
-    if (growth === 'Depreciation (Days)') {
-      payload.days_of_usefulness = daysOfUsefulness;
-    }
-    onSave(payload);
-    setName('');
-    setCategory('');
-    setGrowth('None');
-    setRate(0);
-    setRateInputValue('0');
-    setDaysOfUsefulness(0);
-    setRateError('');
-    onClose();
+    saveEnvelope(true);
   };
 
   const growthOptions = [
@@ -113,8 +123,27 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
     { value: 'Depreciation (Days)', label: 'Depreciation (Days)' }
   ];
 
+  const taxTypeDescriptions: Record<string, string> = {
+    none: 'No special tax treatment.',
+    usa_rothira: 'Roth IRA — contributions are after-tax; qualified withdrawals are tax-free in retirement.',
+    usa_traditionalira: 'Traditional IRA — contributions may be tax-deductible; withdrawals are taxed as income.',
+    usa_401k: '401K — employer-sponsored retirement account with tax-deferred growth; withdrawals are taxed.'
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      // If we just saved via the submit flow, skip saving again
+      if (lastSavedRef.current && (Date.now() - lastSavedRef.current) < 1000) {
+        return;
+      }
+      // attempt to save if fields are present/valid, but always close
+      saveEnvelope(false);
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Envelope Details</DialogTitle>
@@ -123,41 +152,46 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            {isNonEditableEnvelope ? (
-              <div className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-sm">
-                {envelope.name} <span className="ml-2 text-xs text-gray-500">(Read-only)</span>
-              </div>
-            ) : (
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter envelope name"
-                required
-              />
-            )}
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter envelope name"
+              required
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            {isNonEditableEnvelope ? (
-              <div className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-sm">
-                {envelope.category} <span className="ml-2 text-xs text-gray-500">(Read-only)</span>
-              </div>
-            ) : (
-              <Select value={category} onValueChange={setCategory} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {schema?.categories.map((cat: string) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select value={category} onValueChange={setCategory} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {schema?.categories.map((cat: string) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="taxAccountType" className="text-sm text-gray-600">Tax Account Type</Label>
+            <Select value={taxAccountType} onValueChange={setTaxAccountType}>
+              <SelectTrigger className="text-sm text-gray-700">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {schema?.tax_account_types?.map((t: any) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">{taxTypeDescriptions[taxAccountType] || ''}</p>
           </div>
 
           <div className="space-y-2">
