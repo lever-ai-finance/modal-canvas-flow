@@ -714,6 +714,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Upsert a plan for the anonymous user
     const upsertAnonymousPlan = async (planName: string, planData: any, planImage?: string) => {
+        return true; // dont upsert plan for now.
         const anonId = getOrCreateAnonId();
         const { error } = await supabase
             .from('anonymous_plans')

@@ -8,7 +8,7 @@ import { Checkbox } from './ui/checkbox';
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { DollarSign, Target, Home, Plane, TrendingUp, PiggyBank, Building, Wallet, Shield, Sparkles, Pencil, Plus, Trash2, HelpCircle, CreditCard } from 'lucide-react';
+import { DollarSign, Target, Home, Plane, TrendingUp, PiggyBank, Building, Wallet, Shield, Sparkles, Pencil, Plus, Trash2, HelpCircle, CreditCard, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePlan } from '../contexts/PlanContext';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -52,12 +52,15 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     onboarding_state: 'user_info',
     _currentStep: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { upsertAnonymousOnboarding, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
   const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon} = usePlan();
 
   const [selectedDefaultEnvelope, setSelectedDefaultEnvelope] = useState<string>('');
   const [selectedDefaultEvent, setSelectedDefaultEvent] = useState<string>('');
+  const [showPersonalInfoAdvanced, setShowPersonalInfoAdvanced] = useState(false);
+  const [showDebtValidationModal, setShowDebtValidationModal] = useState(false);
+  const [debtWithoutPayment, setDebtWithoutPayment] = useState<Envelope | null>(null);
   const [accounts, setAccounts] = useState<Record<string, number>>(() => {
     // initialize from plan if available on first render
     const init: Record<string, number> = {};
@@ -74,23 +77,23 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     setAccounts(prev => ({ ...prev, [key]: value }));
   };
 
-  // Fetch onboarding data on mount
-  React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      const anonData = await fetchAnonymousOnboarding();
-      if (anonData && mounted && anonData.onboarding_data) {
-        setData((prev) => ({ ...prev, ...anonData.onboarding_data }));
-        // If the fetched data has a _currentStep, set the step
-        if (typeof anonData.onboarding_data._currentStep === 'number') {
-          setCurrentStep(anonData.onboarding_data._currentStep);
-        }
-      }
-      setLoading(false);
-    })();
-    return () => { mounted = false; };
-  }, [fetchAnonymousOnboarding]);
+  // Fetch onboarding data on mount, Take out for now 
+  // React.useEffect(() => {
+  //   let mounted = true;
+  //   (async () => {
+  //     setLoading(true);
+  //     const anonData = await fetchAnonymousOnboarding();
+  //     if (anonData && mounted && anonData.onboarding_data) {
+  //       setData((prev) => ({ ...prev, ...anonData.onboarding_data }));
+  //       // If the fetched data has a _currentStep, set the step
+  //       if (typeof anonData.onboarding_data._currentStep === 'number') {
+  //         setCurrentStep(anonData.onboarding_data._currentStep);
+  //       }
+  //     }
+  //     setLoading(false);
+  //   })();
+  //   return () => { mounted = false; };
+  // }, [fetchAnonymousOnboarding]);
 
   // Save onboarding data on every change, including currentStep
   React.useEffect(() => {
@@ -103,6 +106,19 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   const totalSteps = 4;
 
   const handleNext = async () => {
+    // After step 1 (Account Balances), save balances as initial values
+    if (currentStep === 1) {
+      // Update envelope initial values with entered balances
+      (plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).forEach((env: Envelope) => {
+        const balance = accounts[env.name] || 0;
+        if (balance !== 0 && env.envelope_id !== undefined) {
+          // For debt category, store as negative value
+          const finalBalance = env.category === 'Debt' ? -balance : balance;
+          // Update the envelope with the initial balance
+          updateEnvelope(env.envelope_id, { ...env, initial_value: finalBalance });
+        }
+      });
+    }
 
     // After step 3 (personal info), save all user data to plan
     if (currentStep === 4) {
@@ -168,13 +184,57 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // When completing the modal, transition from 'user_info' to 'basics' to start progressive access
-      if (logAnonymousButtonClick) {
-        await logAnonymousButtonClick('modal_completed');
+      // Before finishing, check if any debt accounts are missing payment schedules
+      const debtEnvelopes = plan?.envelopes?.filter((env: Envelope) => 
+        env.category === 'Debt' && ['regular'].includes(env.account_type)
+      ) || [];
+      
+      // Check if there's a payment_schedule event for each debt envelope
+      for (const debtEnv of debtEnvelopes) {
+        const hasPaymentPlan = plan?.events?.some((event: Event) => 
+          event.type === 'payment_schedule' && 
+          event.from_envelope === debtEnv.name
+        );
+        
+        if (!hasPaymentPlan) {
+          // Found a debt without payment plan - show validation modal
+          setDebtWithoutPayment(debtEnv);
+          setShowDebtValidationModal(true);
+          return; // Stop here and wait for user action
+        }
       }
-      // Close the modal and let the user continue with progressive onboarding
-      onAuthRequired!();
+      
+      // All debts have payment plans (or no debts) - proceed with completion
+      completeOnboarding();
     }
+  };
+
+  const completeOnboarding = async () => {
+    // When completing the modal, transition from 'user_info' to 'basics' to start progressive access
+    if (logAnonymousButtonClick) {
+      await logAnonymousButtonClick('modal_completed');
+    }
+    // Close the modal and let the user continue with progressive onboarding
+    onAuthRequired!();
+  };
+
+  const handleAddPaymentPlan = () => {
+    setShowDebtValidationModal(false);
+    if (debtWithoutPayment) {
+      // Find the payment_schedule event schema
+      const paymentScheduleEvent = schema?.events?.find((e: SchemaEvent) => e.type === 'payment_schedule');
+      if (paymentScheduleEvent) {
+        // Pre-populate with the debt envelope
+        onOpenEvent?.(paymentScheduleEvent, true, { from_envelope: debtWithoutPayment.name });
+      }
+    }
+  };
+
+  const handleSkipPaymentPlan = () => {
+    setShowDebtValidationModal(false);
+    setDebtWithoutPayment(null);
+    // No more debts without payment plans - complete onboarding
+    completeOnboarding();
   };
 
   const handleBack = () => {
@@ -184,13 +244,133 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   };
 
   const steps = [
-    // Step 1: Account Balances
-    // Add Account Balances: {Drop down menu of default_enevelopes in schema} // use schema.default_envelopes.name, filter by account_type == regular or system-controlled
-    // When clicked on add account to plan. // use addEnvelope(default_envelope)
-    // Need to add "tax_account_type" to a envelope schema
-    // Need API call for getting Default envelopes from schema // use schema.default_envelopes
-    // Need api calls for addinging, deleting, and updating envelopes in the plan // use addEnvelope, deleteEnvelope, updateEnvelope
-    // Need api call for displaying the current envelopes and their details // use plan.envelopes
+    {
+      title: " ",
+      content: (
+        <div className="relative py-8">
+          <div className="text-center space-y-12 relative z-10">
+            <div className="space-y-10">
+              <h1 className="text-3xl md:text-4xl font-semibold text-foreground/90 tracking-tight leading-relaxed px-4">
+                A sandbox for modeling<br />financial events over time
+              </h1>
+
+              <div className="space-y-6 max-w-xl mx-auto px-6">
+                <p className="text-base text-muted-foreground/90 leading-relaxed font-light">
+                  Create a personalized financial timeline that brings your income, savings, debt, and goals into one connected view.
+                </p>
+                <p className="text-base text-muted-foreground/90 leading-relaxed font-light">
+                  From there, model decisions in context and see how each choice ripples across everything else over time.
+                </p>
+                <p className="text-base text-muted-foreground/80 leading-relaxed font-normal">
+                  This is where isolated decisions become a coherent plan—and where clarity compounds.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <p className="text-sm text-muted-foreground/70 italic max-w-md mx-auto font-light">
+                  No commitment—just a fast way to answer "what if?"
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    // Step 4: Personal Information
+    {
+      title: "Create Your Financial Timeline",
+      content: (
+        <div className="space-y-4">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={data.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter your name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="birthDate">Birth Date</Label>
+              <DatePicker
+                value={data.birthDate}
+                onChange={(date) => setData(prev => ({ ...prev, birthDate: date || '' }))}
+                showAgeInput={false}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Used for how age affects financial model
+              </p>
+            </div>
+
+            {/* Advanced Options Toggle */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowPersonalInfoAdvanced(!showPersonalInfoAdvanced)}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2 px-1 rounded hover:bg-muted/50"
+              >
+                {showPersonalInfoAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                <span>Advanced Options</span>
+              </button>
+            </div>
+
+            {/* Advanced Options Content */}
+            {showPersonalInfoAdvanced && (
+              <div className="space-y-4 pt-2 pb-2 px-2 border-l-2 border-muted">
+                <div>
+                  <Label htmlFor="location">City Location</Label>
+                  <Input
+                    id="location"
+                    value={data.location}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="e.g., San Francisco, CA"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Used for finding local financial metrics (cost of living, mortgage rates, etc.)
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="education">Education Level</Label>
+                    <select
+                      id="education"
+                      value={data.education}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setData(prev => ({ ...prev, education: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-3 py-2 mt-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select education level</option>
+                      <option value="High School">High School</option>
+                      <option value="Associate's">Associate's Degree</option>
+                      <option value="Bachelor's">Bachelor's Degree</option>
+                      <option value="Master's">Master's Degree</option>
+                      <option value="Doctorate">Doctorate (PhD, MD, etc.)</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Used to get estimates on salary and job reports.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="educationField">Degree or Field of Study</Label>
+                    <Input
+                      id="educationField"
+                      value={data.educationField}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(prev => ({ ...prev, educationField: e.target.value }))}
+                      placeholder="e.g., Computer Science, Business, Engineering"
+                      className="w-full mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Used to personalize job and salary estimates.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    },
     {
       title: "Account Balances",
       content: (
@@ -214,7 +394,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                 <SelectContent>
                   {schema?.default_envelopes
                     ?.filter((env: any) => ['regular'].includes(env.account_type)
-                      && ['Cash', 'Checking Account', 'High Yield Savings', 'Investment Account', 'Roth IRA Account', '401K Account', 'House Equity', 'Car Value', 'Car Loan', 'Home Mortgage', 'Student Loans'].includes(env.name))
+                      && ['Cash', 'Checking Account', 'High Yield Savings', 'Investment Account', 'Roth IRA Account', '401K Account', 'House Equity', 'Car Value', 'Car Loan', 'Home Mortgage', 'Student Loans', 'Personal Loan'].includes(env.name))
                     .map((env: any) => (
                       <SelectItem key={env.name} value={env.name}>{env.name}</SelectItem>
                     ))}
@@ -327,9 +507,14 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                   <div className="p-2 bg-primary/20 rounded-lg">
                     <TrendingUp className="w-5 h-5 text-primary" />
                   </div>
-                  <span className="font-semibold text-foreground">Total (local)</span>
+                  <span className="font-semibold text-foreground">Total Value</span>
                 </div>
-                <span className="text-lg font-bold text-primary">${(Object.values(accounts).reduce((s, v) => s + (v || 0), 0)).toLocaleString()}</span>
+                <span className="text-lg font-bold text-primary">${(
+                  (plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).reduce((sum, env) => {
+                    const value = accounts[env.name] || 0;
+                    return sum + (env.category === 'Debt' ? -value : value);
+                  }, 0)
+                ).toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -346,7 +531,6 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
               <Select
                 value={selectedDefaultEvent}
                 onValueChange={(val) => {
-                  setSelectedDefaultEvent(val);
                   const event = schema?.events?.find((d: SchemaEvent) => d.type === val);
                   if (event) onOpenEvent?.(event, true);
                 }}
@@ -355,7 +539,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                   <SelectValue placeholder="Select Event..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {schema?.events?.filter((env: SchemaEvent) => ['inflow', 'outflow', 'monthly_budgeting', 'get_job', 'get_wage_job'].includes(env.type))
+                  {schema?.events?.filter((env: SchemaEvent) => ['inflow', 'outflow', 'monthly_budgeting', 'get_job', 'get_wage_job', 'payment_schedule'].includes(env.type))
                     .map((event: SchemaEvent) => (
                       <SelectItem key={event.type} value={event.type}>{event.display_type}</SelectItem>
                     ))}
@@ -420,174 +604,19 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                   </CardContent>
                 </Card>
               ))}
-            </div>
-          </div>
-        </div>
-      )
-    },
-        {
-      title: "Debt and Loan Repayments",
-      content: (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
-            <span className="text-sm text-muted-foreground mr-2">Add Cash Flow Event:</span>
-            <div className="flex-1">
-              <Select
-                value={selectedDefaultEvent}
-                onValueChange={(val) => {
-                  setSelectedDefaultEvent(val);
-                  const event = schema?.events?.find((d: SchemaEvent) => d.type === val);
-                  if (event) onOpenEvent?.(event, true);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Event..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {schema?.events?.filter((env: SchemaEvent) => ['loan'].includes(env.type))
-                    .map((event: SchemaEvent) => (
-                      <SelectItem key={event.type} value={event.type}>{event.display_type}</SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* List of plan events inputs */}
-          <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
-            <div className="flex-grow overflow-y-auto space-y-4 pr-2">
-              {(plan?.events || []).map((event: Event) => (
-                <Card key={event.type} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-start space-x-4 min-w-0">
-                      <div
-                        className="p-2 rounded-lg flex-shrink-0"
-                        style={{
-                          backgroundColor: (CATEGORY_BASE_COLORS['Debt']) + '22',
-                          border: `2px solid '#c7d2fe'`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '2rem',
-                          height: '2rem',
-                        }}
-                      >
-                        {getEventIcon(event.type, event)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col">
-                          <h3 className="font-semibold truncate">{event.title}</h3>
-                          {event.description && (
-                            <p className="text-sm text-muted-foreground mt-1 truncate">{event.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="ml-4 flex items-center space-x-2 flex-shrink-0">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
-                        onClick={() => { onOpenEvent?.(event, false); }}
-                        aria-label="Manage envelope"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="p-1 h-8 w-8 text-gray-400 hover:text-red-600"
-                        onClick={() => { if (event.id !== undefined) deleteEvent(event.id); }}
-                        aria-label="Delete envelope"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      )
-    },
-    // Step 4: Personal Information
-    {
-      title: "Create Your Financial Plan",
-      content: (
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-center mb-6">
-            Help us personalize your experience
-          </p>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={data.name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter your name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="birthDate">Birth Date</Label>
-              <DatePicker
-                value={data.birthDate}
-                onChange={(date) => setData(prev => ({ ...prev, birthDate: date || '' }))}
-                showAgeInput={false}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Used to calculate changes in net worth at age 59½ due to tax advantage accounts
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="location">City Location</Label>
-              <Input
-                id="location"
-                value={data.location}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="e.g., San Francisco, CA"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Used for finding local financial metrics (cost of living, mortgage rates, etc.)
-              </p>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="education">Education Level</Label>
-                <select
-                  id="education"
-                  value={data.education}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setData(prev => ({ ...prev, education: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 mt-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Select education level</option>
-                  <option value="High School">High School</option>
-                  <option value="Associate's">Associate's Degree</option>
-                  <option value="Bachelor's">Bachelor's Degree</option>
-                  <option value="Master's">Master's Degree</option>
-                  <option value="Doctorate">Doctorate (PhD, MD, etc.)</option>
-                  <option value="Other">Other</option>
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Used to get estimates on salary and job reports.
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="educationField">Degree or Field of Study</Label>
-                <Input
-                  id="educationField"
-                  value={data.educationField}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setData(prev => ({ ...prev, educationField: e.target.value }))}
-                  placeholder="e.g., Computer Science, Business, Engineering"
-                  className="w-full mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Used to personalize job and salary estimates.
-                </p>
+              
+              {/* Informative note - always at end of list */}
+              <div className="bg-blue-50/50 border border-blue-200/60 rounded-lg p-3 mt-2">
+                <h3 className="font-medium text-foreground text-sm flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-primary" />
+                  Add your income and expenses to model your financial timeline
+                </h3>
+                <ul className="text-sm text-muted-foreground space-y-2 pl-6">
+                  <li className="list-disc"><span className="font-medium text-foreground">Employment:</span> Add salary or wage jobs to track your regular income</li>
+                  <li className="list-disc"><span className="font-medium text-foreground">Other Income:</span> Include additional income sources like bonuses, side projects, or investments</li>
+                  <li className="list-disc"><span className="font-medium text-foreground">Expenditures:</span> Track your monthly expenses and budgeting categories</li>
+                  <li className="list-disc"><span className="font-medium text-foreground">Loan Payments:</span> Model how your debt payments will be paid off over time</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -620,7 +649,34 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => { }}>
+    <>
+      {/* Debt Payment Validation Modal */}
+      <Dialog open={showDebtValidationModal} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Missing Payment Plan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-center text-muted-foreground">
+              You have a debt account <span className="font-semibold text-foreground">"{debtWithoutPayment?.name}"</span> without a payment plan.
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              Would you like to add a payment schedule now?
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Button onClick={handleAddPaymentPlan} className="w-full">
+              Add Payment Plan
+            </Button>
+            <Button onClick={handleSkipPaymentPlan} variant="outline" className="w-full">
+              Skip for Now
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Onboarding Dialog */}
+      <Dialog open={isOpen} onOpenChange={() => { }}>
       <DialogContent className="sm:max-w-2xl max-w-4xl mx-8">
         <DialogHeader className="space-y-6">
           <DialogTitle className="text-center text-2xl font-light">
@@ -677,6 +733,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 };
 

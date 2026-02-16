@@ -12,6 +12,10 @@ interface ExamplePlanConfig {
 }
 
 const EXAMPLE_PLAN_MAPPING: Record<string, ExamplePlanConfig> = {
+    'Financial-Calculator': {
+        regularPlan: 'Financial Calculator',
+        lockedPlan: 'Financial Calculator'
+    },
     'apr-vs-apy-example': {
         regularPlan: 'APR vs APY',
         lockedPlan: 'APR vs APY'
@@ -260,6 +264,7 @@ export interface SchemaParameter {
     default: number | string;
     options?: string[];
     editable?: boolean;
+    advanced_option?: boolean;
 }
 
 export interface SchemaUpdatingEvent {

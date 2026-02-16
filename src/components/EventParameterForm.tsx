@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, HelpCircle, Calendar, Clock, FileText, DollarSign, Percent, Eye, EyeOff } from 'lucide-react';
+import { Trash2, HelpCircle, Calendar, Clock, FileText, DollarSign, Percent, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -67,6 +67,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
     // State for updating event titles
     const [updatingTitles, setUpdatingTitles] = useState<Record<number, string>>({});
     const [isRepeating, setIsRepeating] = useState<boolean>(false);
+    const [showAdvancedParams, setShowAdvancedParams] = useState<boolean>(false);
 
     // Helper to get eventType and paramType for any eventId and paramId (main or updating)
     function getEventTypeAndParamType(eventId: number, paramId: number): { eventType: string, paramType: string } | null {
@@ -296,6 +297,11 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
         return true;
     };
 
+    const getSchemaParam = (eventType: string, paramType: string) => {
+        const schemaEvent = schema?.events.find(e => e.type === eventType);
+        return schemaEvent?.parameters.find(p => p.type === paramType);
+    };
+
 
 
     if (!schema || !plan) return null;
@@ -364,6 +370,29 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
     const currentEvent = foundEvent && !foundParentEvent ? foundEvent : null;
     // const currentUpdatingEvent = foundEvent && foundParentEvent ? foundEvent : null;
 
+    const editableParams = currentEvent?.parameters
+        ? currentEvent.parameters
+            .filter((param) => shouldShowParameter(param.type))
+            .filter((param) => {
+                const schemaParam = getSchemaParam((currentEvent as any).type, param.type);
+                return schemaParam?.editable !== false;
+            })
+        : [];
+
+    const { regularParams, advancedParams } = editableParams.reduce(
+        (acc, param) => {
+            const schemaParam = getSchemaParam((currentEvent as any).type, param.type);
+            const isAdvanced = schemaParam?.advanced_option === true;
+            if (isAdvanced) {
+                acc.advancedParams.push(param);
+            } else {
+                acc.regularParams.push(param);
+            }
+            return acc;
+        },
+        { regularParams: [] as Parameter[], advancedParams: [] as Parameter[] }
+    );
+
     // --- Updating Events Section ---
     // Helper to get main event and its updating events
     const mainEvent = plan?.events.find(e => e.id === eventId);
@@ -414,6 +443,33 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
         if (!updatingEvent.onboarding_stage) return true; // If no onboarding stage specified, always show
         return isOnboardingAtOrAbove(updatingEvent.onboarding_stage as any);
     };
+
+    const renderParameterInput = (param: Parameter, eventForParam: Event | UpdatingEvent) => (
+        <div key={param.id} className="space-y-2">
+            <div className="space-y-1">
+                <Label htmlFor={param.id.toString()} className="text-sm font-medium">
+                    {getParameterDisplayName((eventForParam as any).type, param.type)}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                    {getEventDefinition(plan, schema, eventId)?.parameters.find((p: any) => p.type === param.type)?.description}
+                </p>
+            </div>
+            <EventParameterInputs
+                param={param}
+                event={eventForParam as any}
+                parameters={parameters}
+                handleInputChange={handleInputChange}
+                handleInputBlur={handleInputBlur}
+                getParameterUnits={getParameterUnits}
+                getParameterOptions={getParameterOptions}
+                getEnvelopeDisplayName={getEnvelopeDisplayName}
+                currentDay={currentDay}
+                plan={plan}
+                onOpenEnvelopeModal={onOpenEnvelopeModal}
+                onAddEnvelope={onAddEnvelope}
+            />
+        </div>
+    );
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -488,42 +544,29 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                             <div className="bg-card rounded-lg border border-border p-6">
                                 <h3 className="text-lg font-semibold text-foreground mb-4">Parameters</h3>
                                 <div className="space-y-4">
-                                    {currentEvent && currentEvent.parameters && currentEvent.parameters
-                                        .filter((param) => shouldShowParameter(param.type))
-                                        .filter((param) => {
-                                            // Filter out read-only parameters (they're displayed on the right side)
-                                            const schemaEvent = schema?.events.find(e => e.type === (currentEvent as any).type);
-                                            const schemaParam = schemaEvent?.parameters.find(p => p.type === param.type);
-                                            return schemaParam?.editable !== false;
-                                        })
-                                        .map((param) => (
-                                            <div key={param.id} className="space-y-2">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor={param.id.toString()} className="text-sm font-medium">
-                                                        {getParameterDisplayName((currentEvent as any).type, param.type)}
-                                                    </Label>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {getEventDefinition(plan, schema, eventId)?.parameters.find((p: any) => p.type === param.type)?.description}
-                                                    </p>
+                                    {currentEvent && regularParams.map((param) => (
+                                        renderParameterInput(param, currentEvent as any)
+                                    ))}
+
+                                    {currentEvent && advancedParams.length > 0 && (
+                                        <div className="pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAdvancedParams(!showAdvancedParams)}
+                                                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2 px-1 rounded hover:bg-muted/50"
+                                            >
+                                                {showAdvancedParams ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                                <span>Advanced Options</span>
+                                            </button>
+                                            {showAdvancedParams && (
+                                                <div className="space-y-4 pt-2 pb-2 px-2 border-l-2 border-muted">
+                                                    {advancedParams.map((param) => (
+                                                        renderParameterInput(param, currentEvent as any)
+                                                    ))}
                                                 </div>
-                                                {currentEvent && (
-                                                    <EventParameterInputs
-                                                        param={param}
-                                                        event={currentEvent as any}
-                                                        parameters={parameters}
-                                                        handleInputChange={handleInputChange}
-                                                        handleInputBlur={handleInputBlur}
-                                                        getParameterUnits={getParameterUnits}
-                                                        getParameterOptions={getParameterOptions}
-                                                        getEnvelopeDisplayName={getEnvelopeDisplayName}
-                                                        currentDay={currentDay}
-                                                        plan={plan}
-                                                        onOpenEnvelopeModal={onOpenEnvelopeModal}
-                                                        onAddEnvelope={onAddEnvelope}
-                                                    />
-                                                )}
-                                            </div>
-                                        ))}
+                                            )}
+                                        </div>
+                                    )}
                                     {canEventBeRecurring(eventId) && (
                                         <div className="flex flex-col gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                             <div className="flex items-center gap-3">
@@ -589,7 +632,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                             </div>
 
                             {/* Event Functions Section */}
-                            {currentEvent && (() => {
+                            {/* {currentEvent && (() => {
                                 const eventType = (currentEvent as any).type;
                                 const eventFunctions = getEventFunctionsParts(eventType);
 
@@ -639,7 +682,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                     );
                                 }
                                 return null;
-                            })()}
+                            })()} */}
 
                             {/* --- Updating Events Section --- */}
                             {/* Only show updating events section if there are updating events available at current onboarding stage */}

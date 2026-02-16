@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { usePlan, type Envelope } from '../contexts/PlanContext';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface EditEnvelopeModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
   const [daysOfUsefulness, setDaysOfUsefulness] = useState(envelope?.days_of_usefulness || 0);
   const [rateError, setRateError] = useState<string>('');
   const [taxAccountType, setTaxAccountType] = useState(envelope?.tax_account_type || 'none');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { schema } = usePlan();
 
@@ -40,10 +42,11 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
     setGrowth(envelope?.growth || 'None');
     const initialRate = envelope ? envelope.rate * 100 : 0;
     setRate(initialRate);
-    setRateInputValue(initialRate.toString());
+    setRateInputValue(initialRate.toFixed(2));
     setDaysOfUsefulness(envelope?.days_of_usefulness || 0);
     setRateError('');
     setTaxAccountType(envelope?.tax_account_type || 'none');
+    setShowAdvanced(false);
   }, [envelope, isOpen]);
 
   const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,6 +58,8 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
   const handleRateBlur = () => {
     const numValue = parseFloat(rateInputValue) || 0;
     setRate(numValue);
+    // Format to 2 decimal places on blur
+    setRateInputValue(numValue.toFixed(2));
   };
 
   const lastSavedRef = React.useRef<number | null>(null);
@@ -146,7 +151,7 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
     <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Envelope Details</DialogTitle>
+          <DialogTitle>Account Details</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -177,53 +182,19 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
             </Select>
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="taxAccountType" className="text-sm text-gray-600">Tax Account Type</Label>
-            <Select value={taxAccountType} onValueChange={setTaxAccountType}>
-              <SelectTrigger className="text-sm text-gray-700">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {schema?.tax_account_types?.map((t: any) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-gray-500">{taxTypeDescriptions[taxAccountType] || ''}</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="growth">Growth Model</Label>
-            <Select value={growth} onValueChange={setGrowth}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {growthOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {growth !== 'Depreciation (Days)' && (
+          {growth !== 'Depreciation (Days)' && growth !== 'None' && (
             <div className="space-y-2">
               <Label htmlFor="rate">Growth Rate (%)</Label>
               <Input
                 id="rate"
                 type="number"
-                step="0.01"
+                step="any"
                 min="0"
                 max="40"
                 value={rateInputValue}
                 onChange={handleRateChange}
                 onBlur={handleRateBlur}
                 placeholder="0.00"
-                disabled={growth === 'None'}
                 className={rateError ? 'border-red-500' : ''}
               />
               {rateError && (
@@ -233,18 +204,68 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
             </div>
           )}
 
-          {growth === 'Depreciation (Days)' && (
-            <div className="space-y-2">
-              <Label htmlFor="daysOfUsefulness">Days of Usefulness</Label>
-              <Input
-                id="daysOfUsefulness"
-                type="number"
-                min={1}
-                value={daysOfUsefulness}
-                onChange={(e) => setDaysOfUsefulness(Number(e.target.value))}
-                placeholder="Enter number of days"
-                required
-              />
+          {/* Advanced Options Toggle */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2 px-1 rounded hover:bg-muted/50"
+            >
+              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <span>Advanced Options</span>
+            </button>
+          </div>
+
+          {/* Advanced Options Content */}
+          {showAdvanced && (
+            <div className="space-y-4 pt-2 pb-2 px-2 border-l-2 border-muted">
+              <div className="space-y-2">
+                <Label htmlFor="growth">Growth Model</Label>
+                <Select value={growth} onValueChange={setGrowth}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {growthOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {growth === 'Depreciation (Days)' && (
+                <div className="space-y-2">
+                  <Label htmlFor="daysOfUsefulness">Days of Usefulness</Label>
+                  <Input
+                    id="daysOfUsefulness"
+                    type="number"
+                    min={1}
+                    value={daysOfUsefulness}
+                    onChange={(e) => setDaysOfUsefulness(Number(e.target.value))}
+                    placeholder="Enter number of days"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="taxAccountType" className="text-sm text-gray-600">Tax Account Type</Label>
+                <Select value={taxAccountType} onValueChange={setTaxAccountType}>
+                  <SelectTrigger className="text-sm text-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schema?.tax_account_types?.map((t: any) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">{taxTypeDescriptions[taxAccountType] || ''}</p>
+              </div>
             </div>
           )}
 
