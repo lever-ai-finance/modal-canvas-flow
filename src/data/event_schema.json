@@ -2931,9 +2931,13 @@
                 {
                     "type": "loan_term_years",
                     "display_name": "Loan Term",
-                    "parameter_units": "years",
+                    "parameter_units": "enum",
                     "description": "Length of mortgage in years.",
-                    "default": 30,
+                    "options": [
+                        "15",
+                        "30"
+                    ],
+                    "default": "30",
                     "editable": true,
 "advanced_option": false
                 },
@@ -2996,7 +3000,7 @@
                 {
                     "type": "new_appraisal",
                     "display_type": "New Appraisal",
-                    "display_event": false,
+                    "display_event": true,
                     "icon": "clipboard-check",
                     "description": "New professional appraisal of home value.",
                     "parameters": [
@@ -3023,7 +3027,7 @@
                 {
                     "type": "extra_mortgage_payment",
                     "display_type": "Extra Mortgage Payment",
-                    "display_event": false,
+                    "display_event": true,
                     "icon": "plus",
                     "description": "Make an extra one-time payment toward principal.",
                     "parameters": [
@@ -3068,7 +3072,7 @@
                 {
                     "type": "late_payment",
                     "display_type": "Late Payment",
-                    "display_event": false,
+                    "display_event": true,
                     "icon": "clock",
                     "description": "Make a mortgage payment late.",
                     "parameters": [
@@ -3113,7 +3117,7 @@
                 {
                     "type": "sell_house",
                     "display_type": "Sell House",
-                    "display_event": false,
+                    "display_event": true,
                     "icon": "dollar-sign",
                     "description": "Sell your home and receive proceeds.",
                     "parameters": [

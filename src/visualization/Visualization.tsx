@@ -2152,7 +2152,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                                       }}
                                       onMouseUp={(e) => {
                                         if (!hasDragged && e.button === 0 && !interactionMgr.isClickSuppressed()) {
-                                          const clickTargetId = parentEventId ?? event.id;
+                                          const clickTargetId = event.id;
                                           onAnnotationClick?.(clickTargetId);
                                         }
                                         setHasDragged(false);

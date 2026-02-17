@@ -297,13 +297,28 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
         return true;
     };
 
-    const getSchemaParam = (eventType: string, paramType: string) => {
-        const schemaEvent = schema?.events.find(e => e.type === eventType);
+    const getSchemaParamForEvent = (
+        eventForParam: Event | UpdatingEvent,
+        paramType: string,
+        parentEventType?: string
+    ) => {
+        if (!schema) return undefined;
+        if (parentEventType) {
+            const parentSchema = schema.events.find(e => e.type === parentEventType);
+            return parentSchema?.updating_events
+                ?.find(ue => ue.type === eventForParam.type)
+                ?.parameters.find(p => p.type === paramType);
+        }
+        const schemaEvent = schema.events.find(e => e.type === eventForParam.type);
         return schemaEvent?.parameters.find(p => p.type === paramType);
     };
 
-    const shouldDisplayParam = (eventType: string, paramType: string) => {
-        const schemaParam = getSchemaParam(eventType, paramType);
+    const shouldDisplayParam = (
+        eventForParam: Event | UpdatingEvent,
+        paramType: string,
+        parentEventType?: string
+    ) => {
+        const schemaParam = getSchemaParamForEvent(eventForParam, paramType, parentEventType);
         return schemaParam?.do_not_display_to_user !== true;
     };
 
@@ -372,21 +387,24 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
     }
 
     // For rendering parameters, use the helper to get the right event/updating event
-    const currentEvent = foundEvent && !foundParentEvent ? foundEvent : null;
+    const currentEvent = foundEvent as Event | UpdatingEvent | null;
+    const currentParentType = foundParentEvent?.type;
     // const currentUpdatingEvent = foundEvent && foundParentEvent ? foundEvent : null;
 
     const editableParams = currentEvent?.parameters
         ? currentEvent.parameters
             .filter((param) => shouldShowParameter(param.type))
             .filter((param) => {
-                const schemaParam = getSchemaParam((currentEvent as any).type, param.type);
+                const schemaParam = getSchemaParamForEvent(currentEvent, param.type, currentParentType);
                 return schemaParam?.editable !== false && schemaParam?.do_not_display_to_user !== true;
             })
         : [];
 
     const { regularParams, advancedParams } = editableParams.reduce(
         (acc, param) => {
-            const schemaParam = getSchemaParam((currentEvent as any).type, param.type);
+            const schemaParam = currentEvent
+                ? getSchemaParamForEvent(currentEvent, param.type, currentParentType)
+                : undefined;
             const isAdvanced = schemaParam?.advanced_option === true;
             if (isAdvanced) {
                 acc.advancedParams.push(param);
@@ -604,7 +622,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                     {['frequency_days', 'end_time'].map((type) =>
                                                         currentEvent.parameters
                                                             .filter(param => param.type === type)
-                                                            .filter(param => shouldDisplayParam((currentEvent as any).type, param.type))
+                                                            .filter(param => shouldDisplayParam(currentEvent as any, param.type, currentParentType))
                                                             .map(param => (
                                                                 <div key={param.id} className="space-y-1">
                                                                     <Label htmlFor={param.id.toString()} className="text-sm font-medium">
@@ -781,7 +799,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                                     }
                                                                     return true;
                                                                 }).filter(param => {
-                                                                    return shouldDisplayParam(ue.type, param.type);
+                                                                    return shouldDisplayParam(ue, param.type, mainEvent?.type);
                                                                 }).filter(param => {
                                                                     // Filter out read-only parameters (they're displayed on the right side)
                                                                     const mainSchemaEvent = schema?.events.find(e => e.type === mainEvent.type);

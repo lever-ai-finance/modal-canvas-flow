@@ -22,8 +22,9 @@ interface EventLibraryModalProps {
 const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, onEventAdded, selectedDayOffset }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
-  const { schema, addEvent, getEventDisplayType, getEventDisclaimer, getParameterDisplayName, daysSinceBirthToDateString, plan, getEventOnboardingStage } = usePlan();
+  const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
+  const [selectedParentEventId, setSelectedParentEventId] = useState<number | null>(null);
+  const { schema, addEvent, addUpdatingEvent, getEventDisplayType, getEventDisclaimer, getParameterDisplayName, daysSinceBirthToDateString, plan, getEventOnboardingStage } = usePlan();
   const { onboarding_state, getOnboardingStateNumber } = useAuth();
 
   const categories = schema ? ['All', ...new Set(schema.events.map(event => event.category))] : [];
@@ -34,37 +35,121 @@ const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, 
     return <IconComponent size={20} />;
   };
 
-  const filteredEvents = schema ? schema.events.filter(event => {
-    if (event.display_event !== true) return false;
+  const eventItems = schema ? (() => {
+    const items: Array<{
+      key: string;
+      kind: 'main' | 'updating';
+      type: string;
+      parentType?: string;
+      displayType: string;
+      category: string;
+      icon: string;
+      description: string;
+      disclaimer?: string;
+      parameters: any[];
+    }> = [];
 
-    // Check onboarding stage - only show events that are available at current onboarding stage
-    const eventOnboardingStage = getEventOnboardingStage(event.type);
-    if (eventOnboardingStage) {
-      const eventStageNumber = getOnboardingStateNumber(eventOnboardingStage as any);
-      const currentStageNumber = getOnboardingStateNumber(onboarding_state);
-      if (eventStageNumber > currentStageNumber) {
-        return true; // Event is not available at current onboarding stage
+    const hasMainEvent = (type: string) => plan?.events?.some(e => e.type === type) ?? false;
+
+    for (const event of schema.events) {
+      if (event.display_event !== true) continue;
+
+      const eventOnboardingStage = getEventOnboardingStage(event.type);
+      if (eventOnboardingStage) {
+        const eventStageNumber = getOnboardingStateNumber(eventOnboardingStage as any);
+        const currentStageNumber = getOnboardingStateNumber(onboarding_state);
+        if (eventStageNumber > currentStageNumber) {
+          // Keep existing behavior
+        }
+      }
+
+      items.push({
+        key: `main:${event.type}`,
+        kind: 'main',
+        type: event.type,
+        displayType: getEventDisplayType(event.type),
+        category: event.category,
+        icon: event.icon,
+        description: event.description,
+        disclaimer: getEventDisclaimer(event.type),
+        parameters: event.parameters
+      });
+
+      if (event.updating_events && hasMainEvent(event.type)) {
+        for (const upd of event.updating_events) {
+          if (upd.display_event === false) continue;
+
+          const updStage = getEventOnboardingStage(upd.type);
+          if (updStage) {
+            const eventStageNumber = getOnboardingStateNumber(updStage as any);
+            const currentStageNumber = getOnboardingStateNumber(onboarding_state);
+            if (eventStageNumber > currentStageNumber) {
+              // Keep existing behavior
+            }
+          }
+
+          items.unshift({
+            key: `updating:${event.type}:${upd.type}`,
+            kind: 'updating',
+            type: upd.type,
+            parentType: event.type,
+            displayType: upd.display_type || upd.type,
+            category: event.category,
+            icon: upd.icon,
+            description: upd.description,
+            disclaimer: event.disclaimer,
+            parameters: upd.parameters
+          });
+        }
       }
     }
 
-    const displayName = getEventDisplayType(event.type).toLowerCase();
+    return items;
+  })() : [];
+
+  const filteredEvents = eventItems.filter(item => {
+    const displayName = item.displayType.toLowerCase();
     const matchesSearch = displayName.includes(searchTerm.toLowerCase()) ||
-      event.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
+      item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
-  }) : [];
+  });
+
+  const selectedItem = filteredEvents.find(item => item.key === selectedEventKey)
+    || eventItems.find(item => item.key === selectedEventKey)
+    || null;
+
+  const availableParentEvents = selectedItem?.kind === 'updating'
+    ? (plan?.events || []).filter(e => e.type === selectedItem.parentType)
+    : [];
+
+  React.useEffect(() => {
+    if (selectedItem?.kind === 'updating') {
+      setSelectedParentEventId(availableParentEvents[0]?.id ?? null);
+    } else {
+      setSelectedParentEventId(null);
+    }
+  }, [selectedItem?.key, plan]);
 
   const handleAddEvent = () => {
-    if (selectedEvent && plan) {
-      // If we have a selectedDayOffset, convert it to a date string and pass it as a parameter override for start_time
-      const parameterOverrides = selectedDayOffset !== undefined ? {
-        start_time: daysSinceBirthToDateString(selectedDayOffset, plan.birth_date)
-      } : undefined;
-      const eventId = addEvent(selectedEvent, parameterOverrides);
+    if (!selectedItem || !plan) return;
+
+    if (selectedItem.kind === 'updating') {
+      if (!selectedParentEventId) return;
+      const eventId = addUpdatingEvent(selectedParentEventId, selectedItem.type);
       onEventAdded(eventId);
       onClose();
+      return;
     }
+
+    // If we have a selectedDayOffset, convert it to a date string and pass it as a parameter override for start_time
+    const parameterOverrides = selectedDayOffset !== undefined ? {
+      start_time: daysSinceBirthToDateString(selectedDayOffset, plan.birth_date)
+    } : undefined;
+    const eventId = addEvent(selectedItem.type, parameterOverrides);
+    onEventAdded(eventId);
+    onClose();
   };
 
   if (!schema) return null;
@@ -137,13 +222,13 @@ const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, 
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {filteredEvents.map((event) => (
                   <button
-                    key={event.type}
-                    onClick={() => setSelectedEvent(event.type)}
-                    className={`w-full text-left p-2.5 sm:p-3 rounded-lg border transition-colors ${selectedEvent === event.type
+                    key={event.key}
+                    onClick={() => setSelectedEventKey(event.key)}
+                    className={`w-full text-left p-2.5 sm:p-3 rounded-lg border transition-colors ${selectedEventKey === event.key
                       ? ''
                       : 'border-gray-200 hover:bg-gray-50'
                       }`}
-                    style={selectedEvent === event.type
+                    style={selectedEventKey === event.key
                       ? { borderColor: '#03c6fc', background: 'rgba(3,198,252,0.06)' }
                       : {}}
                   >
@@ -152,7 +237,7 @@ const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, 
                         {getIconComponent(event.icon)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 text-sm">{getEventDisplayType(event.type)}</h3>
+                        <h3 className="font-medium text-gray-900 text-sm">{event.displayType}</h3>
                         <p className="text-xs text-gray-500 mt-0.5">{event.category}</p>
                       </div>
                     </div>
@@ -164,34 +249,89 @@ const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, 
 
           {/* Event Details */}
           <div className="w-full lg:w-1/2 p-3 sm:p-4 overflow-y-auto bg-white">
-            {selectedEvent ? (
+            {selectedItem ? (
               <div>
                 {(() => {
-                  const event = schema.events.find(e => e.type === selectedEvent);
-                  if (!event) return null;
-                  const disclaimer = getEventDisclaimer(event.type);
+                  const disclaimer = selectedItem.disclaimer;
                   return (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[#03c6fc]">{getIconComponent(event.icon)}</span>
-                            <h3 className="text-lg font-semibold text-gray-900">{getEventDisplayType(event.type)}</h3>
+                            <span className="text-[#03c6fc]">{getIconComponent(selectedItem.icon)}</span>
+                            <h3 className="text-lg font-semibold text-gray-900">{selectedItem.displayType}</h3>
                           </div>
                           <span className="inline-block px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-700 font-medium text-xs sm:text-sm rounded-md">
-                            {event.category}
+                            {selectedItem.category}
                           </span>
                         </div>
 
                         {/* Add Event Button - Top Right */}
                         <button
                           onClick={handleAddEvent}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-all font-medium flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm bg-[#03c6fc]/10 backdrop-blur-sm hover:bg-[#03c6fc]/20 text-slate-700 shadow-sm border border-[#03c6fc]/20 hover:border-[#03c6fc]/40 flex-shrink-0"
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-all font-medium flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm bg-[#03c6fc]/10 backdrop-blur-sm hover:bg-[#03c6fc]/20 text-slate-700 shadow-sm border border-[#03c6fc]/20 hover:border-[#03c6fc]/40 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ boxShadow: '0 2px 8px rgba(3,198,252,0.04)' }}
+                          disabled={selectedItem.kind === 'updating' && !selectedParentEventId}
                         >
                           <Plus size={14} />
                           Add Event
                         </button>
+                      </div>
+
+                      {selectedItem.kind === 'updating' && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">Select a parent event:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {availableParentEvents.map(parentEvent => (
+                              <button
+                                key={parentEvent.id}
+                                type="button"
+                                onClick={() => setSelectedParentEventId(parentEvent.id)}
+                                className={`text-left p-2 rounded-md border transition-colors ${selectedParentEventId === parentEvent.id
+                                  ? 'border-[#03c6fc] bg-[#03c6fc]/10'
+                                  : 'border-gray-200 hover:bg-gray-50'
+                                  }`}
+                              >
+                                <div className="text-sm font-medium text-gray-900">
+                                  {parentEvent.title || getEventDisplayType(parentEvent.type)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {parentEvent.description}
+                                </div>
+                              </button>
+                            ))}
+                            {availableParentEvents.length === 0 && (
+                              <div className="text-xs text-gray-500">No parent events available.</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+
+                      {/* Event Description (no header) */}
+                      <button
+                        type="button"
+                        onClick={handleAddEvent}
+                        className="w-full text-left text-gray-700 leading-relaxed mt-2 bg-transparent border-none p-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#03c6fc] cursor-pointer rounded-md transition text-xs sm:text-sm"
+                        tabIndex={0}
+                      >
+                        {selectedItem.description}
+                      </button>
+
+                      {/* Parameters List (user-friendly, no header) */}
+                      <div className="mt-3 space-y-2">
+                        {selectedItem.parameters.map(param => (
+                          <button
+                            key={param.type}
+                            type="button"
+                            onClick={handleAddEvent}
+                            className="w-full text-left flex flex-col bg-gray-50 rounded-md px-3 py-2 border border-gray-100 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#03c6fc] cursor-pointer transition"
+                            tabIndex={0}
+                          >
+                            <span className="font-medium text-gray-900 text-xs">{getParameterDisplayName(selectedItem.type, param.type)}</span>
+                            <span className="text-gray-600 text-xs mt-0.5">{param.description}</span>
+                          </button>
+                        ))}
                       </div>
 
                       {/* Disclaimer Box */}
@@ -205,32 +345,6 @@ const EventLibraryModal: React.FC<EventLibraryModalProps> = ({ isOpen, onClose, 
                           {disclaimer}
                         </button>
                       )}
-
-                      {/* Event Description (no header) */}
-                      <button
-                        type="button"
-                        onClick={handleAddEvent}
-                        className="w-full text-left text-gray-700 leading-relaxed mt-2 bg-transparent border-none p-0 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#03c6fc] cursor-pointer rounded-md transition text-xs sm:text-sm"
-                        tabIndex={0}
-                      >
-                        {event.description}
-                      </button>
-
-                      {/* Parameters List (user-friendly, no header) */}
-                      <div className="mt-3 space-y-2">
-                        {event.parameters.map(param => (
-                          <button
-                            key={param.type}
-                            type="button"
-                            onClick={handleAddEvent}
-                            className="w-full text-left flex flex-col bg-gray-50 rounded-md px-3 py-2 border border-gray-100 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#03c6fc] cursor-pointer transition"
-                            tabIndex={0}
-                          >
-                            <span className="font-medium text-gray-900 text-xs">{getParameterDisplayName(event.type, param.type)}</span>
-                            <span className="text-gray-600 text-xs mt-0.5">{param.description}</span>
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   );
                 })()}

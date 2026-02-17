@@ -1,114 +1,3 @@
-// runSimulation
-
-// Psueudocode
-// Args: plan (sorted events by day), schema, startDate (number), 
-// endDate (number), interval (number), currentDay, birthdate (Date)
-// visibleRange: {startDate, (number), endDate (number)}
-
-// Return: All simulation results for all days.
-
-// 
-
-// First get the days that I want the results for visible start to end with interval and the today interval
-
-// RunSimulation manually, save all the data off to a state variable
-// After running manual simulation then call sampleData to update the simulation results
-// During run simulation, have a loading screen 
-// Run this on plan update
-// Args: plan, schema, startDate, endDate
-// Return: All data envelopes balances for all days
-
-// Take list of all the events with all of their params.
-// eventlist - list of all events with their params
-// list of evenlope balances
-// results - a blank list of the results be parts of total networth
-// Set day to the startday
-// For day in range(endDate-startDate):
-//  for event in eventlist:
-//  -------------------- Inflow -------------------------------------------------------------
-//      if event = "inflow":
-//          if event.params.start_date <= t: // all event.params.start_date exists
-//              params = <Inflow> event.params
-//              if len(params.updating_events) > 0:
-// -----------------Updating params --------------------------
-//                  for updating_event in updating_events:
-//                      if updating_event == "update_amount":
-//                          uparmas = <UpdateParams> updating_event.params
-//                          if uparmas.start_time == t:
-//                              params.amout = uparmas.amount
-//                      if updating_event == "increment_amount":
-//                          uparmas = <IncremenParams> updating_event.params
-//                          if uparmas.start_time == t:
-//                              params.amout += uparmas.amount
-//                          if uparams.is_reocurring && t <= uparams.end_date):
-//                               if (t-uparams.start_date) % round(uparams.frequency_days):
-//                                  params.amout += uparmas.amount
-//                      if updating_event == "additional_inflow":
-//                          uparmas = <AdditionalParams> updating_event.params
-//                          if uparams.start_date == t:
-//                              envelope[parmas.to_envelope] += uparams.amount
-//                           if the event is reocurring and less than end date then add on the frequency days
-//                          if (uevent.is_reocurring && t <= uparams.end_date):
-//                              if the day is on a interval from the start date so t - start_date mod interval and if 0 then add mount
-//                              if (t-uparams.start_date) % round(uparams.frequency_days):
-//                                  envelope[params.to_envelope] += uparams.amount
-// -------------------- Event Execution Logic --------------------          
-//              If the day is the start date then increment amount 
-//              if params.start_date == t:
-//                  envelope[parmas.to_envelope] += params.amount
-//              if the event is reocurring and less than end date then add on the frequency days
-//              if (event.is_reocurring && t <= params.end_date):
-//                  if the day is on a interval from the start date so t - start_date mod interval and if 0 then add mount
-//                  if (t-params.start_date) % round(params.frequency_days):
-//                      envelope[params.to_envelope] += params.amount
-//          else: do nothing event doesnt affect the balances on this day
-//      
-//  -------------------- buy_house -------------------------------------------------------------
-//      if event = "buy_house":
-//          if event.params.start_date <= t: // all event.params.start_date exists
-//              params = <BuyHouse> event.params
-//              if len(params.updating_events) > 0:
-// -----------------Updating params --------------------------
-//                  for updating_event in updating_events:
-//                      if updating_event == "new_appraisal":
-//                          uparmas = <AppraisalParams> updating_event.params
-//                          if uparmas.start_time == t:
-//                              params. = uparmas.amount
-//                      if updating_event == "increment_amount":
-//                          uparmas = <IncremenParams> updating_event.params
-//                          if uparmas.start_time == t:
-//                              params.amout += uparmas.amount
-//                          if uparams.is_reocurring && t <= uparams.end_date):
-//                               if (t-uparams.start_date) % round(uparams.frequency_days):
-//                                  params.amout += uparmas.amount
-//                      if updating_event == "additional_inflow":
-//                          uparmas = <AdditionalParams> updating_event.params
-//                          if uparams.start_date == t:
-//                              envelope[parmas.to_envelope] += uparams.amount
-//                           if the event is reocurring and less than end date then add on the frequency days
-//                          if (uevent.is_reocurring && t <= uparams.end_date):
-//                              if the day is on a interval from the start date so t - start_date mod interval and if 0 then add mount
-//                              if (t-uparams.start_date) % round(uparams.frequency_days):
-//                                  envelope[params.to_envelope] += uparams.amount
-// -------------------- Event Execution Logic --------------------          
-//              The day of buying the house take out downpayment, add asset, add loan, create amorztization schedule
-//              Attach the amorztization schedule to the event.
-//              if params.start_date == t:
-//                  envelope[parmas.from_key] -= params.downpayment //remove down payment
-//                  envelope[parmas.to_key] += home_value // place money into house
-//                  envelope[params.mortgage_envelope] -= (home_value - downpayment)
-//                  monthly_payment, principle_payed = loan_amoratized(envelope[params.mortgage_envelope], loan_term_years)
-//                  event.amoratization = {t0: monthly_payment, principle_payed, t1: monthly_payment, principle_payed} // Schedule out the monthly payments
-//              Pay property taxes
-//              if event.amoratization != null:
-//                  for payment in event.amoratization:
-//                      if payment.time == t:
-//                          envelope[params.from_key] -= monthly_payment // pay monthly payment
-//                          envelope[params.mortgage_envelope] -= principle_payed //apply principle difference to mortgage envelope
-//                          envelope[params.from_key] -= property_tax_rate*params.home_value*1/12
-//          else: do nothing event doesnt affect the balances on this day
-//      
-
 import type { Plan, Schema, Event } from '../contexts/PlanContext';
 import type { Datum } from '../visualization/viz_utils';
 import { validateProblem, extractSchema, parseEvents } from './schemaChecker';
@@ -286,6 +175,9 @@ const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<strin
                 case "monthly_budgeting":
                     monthly_budgeting(day, event, envelopes);
                     break;
+                case "buy_house":
+                    buy_house(day, event, envelopes);
+                    break;
                 // More event types can be added here
                 default:
                     break;
@@ -295,42 +187,6 @@ const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<strin
     }
 }
 
-//      if event = "inflow":
-//          if event.params.start_date <= t: // all event.params.start_date exists
-//              params = <Inflow> event.params
-//              if len(params.updating_events) > 0:
-// -----------------Updating params --------------------------
-//                  for updating_event in updating_events:
-//                      if updating_event == "update_amount":
-//                          uparmas = <UpdateParams> updating_event.params
-//                          if uparmas.start_time == t:
-//                              params.amout = uparmas.amount
-//                      if updating_event == "increment_amount":
-//                          uparmas = <IncremenParams> updating_event.params
-//                          if uparmas.start_time == t:
-//                              params.amout += uparmas.amount
-//                          if uparams.is_reocurring && t <= uparams.end_date):
-//                               if (t-uparams.start_date) % round(uparams.frequency_days):
-//                                  params.amout += uparmas.amount
-//                      if updating_event == "additional_inflow":
-//                          uparmas = <AdditionalParams> updating_event.params
-//                          if uparams.start_date == t:
-//                              envelope[parmas.to_envelope] += uparams.amount
-//                           if the event is reocurring and less than end date then add on the frequency days
-//                          if (uevent.is_reocurring && t <= uparams.end_date):
-//                              if the day is on a interval from the start date so t - start_date mod interval and if 0 then add mount
-//                              if (t-uparams.start_date) % round(uparams.frequency_days):
-//                                  envelope[params.to_envelope] += uparams.amount
-// -------------------- Event Execution Logic --------------------          
-//              If the day is the start date then increment amount 
-//              if params.start_date == t:
-//                  envelope[parmas.to_envelope] += params.amount
-//              if the event is reocurring and less than end date then add on the frequency days
-//              if (event.is_reocurring && t <= params.end_date):
-//                  if the day is on a interval from the start date so t - start_date mod interval and if 0 then add mount
-//                  if (t-params.start_date) % round(params.frequency_days):
-//                      envelope[params.to_envelope] += params.amount
-//          else: do nothing event doesnt affect the balances on this day
 const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any>) => {
     const params = event.parameters as AllEventTypes.inflowParams;
 
@@ -480,6 +336,14 @@ const calculate_loan_payment = (principal: number, annual_interest_rate: number,
 
     const monthly_payment = (principal * monthly_interest_rate) / (1 - Math.pow(1 + monthly_interest_rate, -number_of_payments));
     return monthly_payment;
+}
+
+const calculateMortgagePayment = (principal: number, annualRateDecimal: number, termYears: number): number => {
+    if (principal <= 0 || termYears <= 0) return 0;
+    const monthlyRate = annualRateDecimal / 12;
+    const numberOfPayments = termYears * 12;
+    if (monthlyRate === 0) return principal / numberOfPayments;
+    return (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -numberOfPayments));
 }
 
 const payment_schedule = (day: number, event: any, envelopes: Record<string, any>) => {
@@ -727,6 +591,130 @@ const get_wage_job = (day: number, event: any, envelopes: Record<string, any>) =
         envelopes[params.federal_withholdings_key!].balance += federal + social + medicare;
         envelopes[params.state_withholdings_key!].balance += state;
         envelopes[params.local_withholdings_key!].balance += 0;
+    }
+}
+
+const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
+    const params = event.parameters as AllEventTypes.buy_houseParams;
+    // Check if any of the envelopes are undefined if so then skip
+    if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.mortgage_envelope]) {
+        return;
+    }
+
+    const isEnabled = (key: string) => event.event_functions?.[key] ?? true;
+
+    const loan_term_years = Number(params.loan_term_years);
+
+    // On day of purchase set up the morgage and down payment
+    if (params.start_time == day && !event._mortgage_state) {
+        const principal = Math.max(0, params.home_value - params.downpayment);
+        const annualRate = envelopes[params.mortgage_envelope]?.growth_rate ?? 0;
+        const monthlyPayment = calculateMortgagePayment(principal, annualRate, loan_term_years);
+
+        event._home_value = params.home_value;
+        event._mortgage_state = {
+            monthly_payment: monthlyPayment,
+            remaining_principal: principal,
+            interest_rate: annualRate,
+            start_time: day,
+            end_day: params.end_time && params.end_time > 0 ? params.end_time : day + loan_term_years * 365
+        };
+
+        if (isEnabled('downpayment')) {
+            envelopes[params.from_key].balance -= params.downpayment;
+        }
+        if (isEnabled('home_asset')) {
+            envelopes[params.to_key].balance += params.home_value;
+        }
+        if (isEnabled('morgage_loan')) {
+            envelopes[params.mortgage_envelope].balance -= principal;
+        }
+    }
+
+    if (event.updating_events.length > 0) {
+        for (const updating_event of event.updating_events) {
+            switch (updating_event.type) {
+                case 'new_appraisal': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_house_new_appraisalParams;
+                    if (uParams.start_time == day) {
+                        const prevValue = event._home_value ?? params.home_value;
+                        event._home_value = uParams.appraised_value;
+                        if (isEnabled('home_asset')) {
+                            envelopes[params.to_key].balance += (uParams.appraised_value - prevValue);
+                        }
+                    }
+                    break;
+                }
+                case 'extra_mortgage_payment': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_house_extra_mortgage_paymentParams;
+                    if (uParams.start_time == day && event._mortgage_state) {
+                        envelopes[uParams.from_key].balance -= uParams.amount;
+                        event._mortgage_state.remaining_principal = Math.max(0, event._mortgage_state.remaining_principal - uParams.amount);
+                        if (isEnabled('morgage_loan')) {
+                            envelopes[params.mortgage_envelope].balance += uParams.amount;
+                        }
+                    }
+                    break;
+                }
+                case 'late_payment': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_house_late_paymentParams;
+                    if (uParams.start_time == day) {
+                        envelopes[uParams.from_key].balance -= uParams.amount;
+                    }
+                    break;
+                }
+                case 'sell_house': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_house_sell_houseParams;
+                    if (uParams.start_time == day) {
+                        const homeValue = event._home_value ?? params.home_value;
+                        if (isEnabled('home_asset')) {
+                            envelopes[uParams.from_key].balance -= homeValue;
+                        }
+                        envelopes[uParams.to_key].balance += uParams.sale_price;
+
+                        if (event._mortgage_state && event._mortgage_state.remaining_principal > 0) {
+                            const payoff = event._mortgage_state.remaining_principal;
+                            envelopes[uParams.to_key].balance -= payoff;
+                            if (isEnabled('morgage_loan')) {
+                                envelopes[params.mortgage_envelope].balance += payoff;
+                            }
+                            event._mortgage_state.remaining_principal = 0;
+                            event._mortgage_state.end_day = day;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (event._mortgage_state && day >= event._mortgage_state.start_time && day <= event._mortgage_state.end_day) {
+        const daysPerMonth = 30;
+        if ((day - event._mortgage_state.start_time) % daysPerMonth == 0 && event._mortgage_state.remaining_principal > 0) {
+            const monthlyPayment = event._mortgage_state.monthly_payment;
+            const monthlyInterest = event._mortgage_state.remaining_principal * (event._mortgage_state.interest_rate / 12);
+            const principalPaid = Math.min(event._mortgage_state.remaining_principal, Math.max(0, monthlyPayment - monthlyInterest));
+            const actualPayment = monthlyInterest + principalPaid;
+
+            if (isEnabled('mortgage_payment')) {
+                envelopes[params.from_key].balance -= actualPayment;
+                event._mortgage_state.remaining_principal = Math.max(0, event._mortgage_state.remaining_principal - principalPaid);
+                if (isEnabled('morgage_loan')) {
+                    envelopes[params.mortgage_envelope].balance += principalPaid;
+                }
+            }
+
+            if (isEnabled('property_tax')) {
+                const tax = (event._home_value ?? params.home_value) * params.property_tax_rate / 12;
+                envelopes[params.from_key].balance -= tax;
+            }
+
+            if (isEnabled('final_home_payment_correction') && event._mortgage_state.remaining_principal <= 0) {
+                if (isEnabled('morgage_loan')) {
+                    envelopes[params.mortgage_envelope].balance = 0;
+                }
+            }
+        }
     }
 }
 
