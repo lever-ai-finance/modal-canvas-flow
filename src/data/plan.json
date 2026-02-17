@@ -1,10 +1,10 @@
 {
-  "title": "Plan Title",
-  "birth_date": "2001-01-01",
+  "title": "Financial Timeline",
+  "birth_date": "2000-01-01",
   "inflation_rate": 0.024,
   "adjust_for_inflation": false,
   "retirement_goal": 0,
-  "view_start_date": "2025-01-01",
+  "view_start_date": "2026-01-01",
   "view_end_date": "2035-12-31",
   "envelopes": [
     {
@@ -13,7 +13,44 @@
       "category": "Cash",
       "growth": "None",
       "rate": 0,
-      "account_type": "regular"
+      "account_type": "regular",
+      "tax_account_type": "none"
+    },
+    {
+      "envelope_id": 2,
+      "name": "Taxable Income",
+      "category": "Tax",
+      "growth": "None",
+      "rate": 0,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "envelope_id": 3,
+      "name": "Federal Withholdings",
+      "category": "Tax",
+      "growth": "None",
+      "rate": 0,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "envelope_id": 4,
+      "name": "State Withholdings",
+      "category": "Tax",
+      "growth": "None",
+      "rate": 0,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "envelope_id": 5,
+      "name": "Local Withholdings",
+      "category": "Tax",
+      "growth": "None",
+      "rate": 0,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
     }
   ],
   "events": []

@@ -26,9 +26,9 @@ export interface inflowParams {
   frequency_days: number;
   amount: number;
   to_key: string;
-  final_recurring_inflow?: number;
-  number_of_recurring_inflows?: number;
-  total_inflow?: number;
+  final_recurring_inflow: number;
+  number_of_recurring_inflows: number;
+  total_inflow: number;
 }
 
 export interface inflow_update_amountParams {
@@ -62,9 +62,9 @@ export interface outflowParams {
   frequency_days: number;
   amount: number;
   from_key: string;
-  final_recurring_outflow?: number;
-  number_of_recurring_outflows?: number;
-  total_outflow?: number;
+  final_recurring_outflow: number;
+  number_of_recurring_outflows: number;
+  total_outflow: number;
 }
 
 export interface outflow_update_amountParams {
@@ -106,15 +106,13 @@ export interface transfer_moneyParams {
   amount: number;
   from_key: string;
   to_key: string;
-  final_transfer?: number;
-  number_of_transfers?: number;
-  total_transfer?: number;
+  final_transfer: number;
+  number_of_transfers: number;
+  total_transfer: number;
 }
 
 export interface transfer_money_update_amountParams {
   start_time: number;
-  end_time: number;
-  frequency_days: number;
   amount: number;
 }
 
@@ -149,6 +147,24 @@ export interface manual_correctionParams {
   start_time: number;
   amount: number;
   to_key: string;
+}
+
+export type payment_scheduleFunctionTypes = "pay_off_loan" | "debt_payments" | "deposit_debt" | "final_payment_correction";
+
+export interface payment_scheduleFunctionState extends EventFunctionState {
+  "pay_off_loan"?: boolean;
+  "debt_payments"?: boolean;
+  "deposit_debt"?: boolean;
+  "final_payment_correction"?: boolean;
+}
+
+export interface payment_scheduleParams {
+  start_time: number;
+  end_time: number;
+  frequency_days: number;
+  payment: number;
+  to_key: string;
+  from_key: string;
 }
 
 export type loan_amortizationFunctionTypes = "pay_off_loan" | "debt_payments" | "deposit_debt" | "final_payment_correction";
@@ -279,11 +295,11 @@ export interface get_jobParams {
   p_401k_contribution: number;
   p_401k_match: number;
   to_key: string;
-  p_401k_key?: string;
-  taxable_income_key?: string;
-  federal_withholdings_key?: string;
-  state_withholdings_key?: string;
-  local_withholdings_key?: string;
+  p_401k_key: string;
+  taxable_income_key: string;
+  federal_withholdings_key: string;
+  state_withholdings_key: string;
+  local_withholdings_key: string;
 }
 
 export interface get_job_get_a_raiseParams {
@@ -332,10 +348,10 @@ export interface get_wage_jobParams {
   employer_match: number;
   to_key: string;
   p_401k_key: string;
-  taxable_income_key?: string;
-  federal_withholdings_key?: string;
-  state_withholdings_key?: string;
-  local_withholdings_key?: string;
+  taxable_income_key: string;
+  federal_withholdings_key: string;
+  state_withholdings_key: string;
+  local_withholdings_key: string;
 }
 
 export interface get_wage_job_get_a_raiseParams {
@@ -423,7 +439,7 @@ export interface buy_houseParams {
   to_key: string;
   mortgage_envelope: string;
   property_tax_rate: number;
-  end_time?: number;
+  end_time: number;
 }
 
 export interface buy_house_new_appraisalParams {
@@ -464,7 +480,7 @@ export interface buy_carFunctionState extends EventFunctionState {
 
 export interface buy_carParams {
   start_time: number;
-  end_time?: number;
+  end_time: number;
   frequency_days: number;
   car_value: number;
   loan_term_years: number;
@@ -639,13 +655,13 @@ export interface roth_ira_contributionParams {
   frequency_days: number;
   amount: number;
   from_key: string;
-  to_key?: string;
-  roth_ira_principle_key?: string;
+  to_key: string;
+  roth_ira_principle_key: string;
 }
 
 export interface federal_subsidized_loanParams {
   start_time: number;
-  end_time?: number;
+  end_time: number;
   amount: number;
   graduation_date: number;
   loan_term_years: number;
@@ -656,7 +672,7 @@ export interface federal_subsidized_loanParams {
 
 export interface federal_unsubsidized_loanParams {
   start_time: number;
-  end_time?: number;
+  end_time: number;
   amount: number;
   graduation_date: number;
   loan_term_years: number;
@@ -666,7 +682,7 @@ export interface federal_unsubsidized_loanParams {
 
 export interface private_student_loanParams {
   start_time: number;
-  end_time?: number;
+  end_time: number;
   amount: number;
   graduation_date: number;
   loan_term_years: number;
@@ -676,21 +692,21 @@ export interface private_student_loanParams {
 
 export interface usa_tax_systemParams {
   start_time: number;
-  taxable_income_key?: string;
-  penalty_401k_key?: string;
-  taxes_401k_key?: string;
-  roth_key?: string;
-  p_401k_key?: string;
-  taxable_home_value_key?: string;
-  federal_withholdings_key?: string;
-  state_withholdings_key?: string;
-  local_withholdings_key?: string;
-  ira_contributions_key?: string;
-  p_401k_withdraw_withholding_key?: string;
-  p_401k_withdraw_key?: string;
-  roth_ira_withdraw_key?: string;
-  roth_ira_principle_key?: string;
-  penalty_roth_key?: string;
+  taxable_income_key: string;
+  penalty_401k_key: string;
+  taxes_401k_key: string;
+  roth_key: string;
+  p_401k_key: string;
+  taxable_home_value_key: string;
+  federal_withholdings_key: string;
+  state_withholdings_key: string;
+  local_withholdings_key: string;
+  ira_contributions_key: string;
+  p_401k_withdraw_withholding_key: string;
+  p_401k_withdraw_key: string;
+  roth_ira_withdraw_key: string;
+  roth_ira_principle_key: string;
+  penalty_roth_key: string;
   irs_registered_account_key: string;
   long_term_capital_gains_key: string;
   short_term_capital_gains_key: string;

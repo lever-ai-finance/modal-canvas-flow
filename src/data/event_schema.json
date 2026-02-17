@@ -188,7 +188,7 @@
         },
         {
             "name": "Taxable Income",
-            "category": "Debt",
+            "category": "Tax",
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
@@ -204,7 +204,7 @@
         },
         {
             "name": "Federal Withholdings",
-            "category": "Debt",
+            "category": "Tax",
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
@@ -212,7 +212,7 @@
         },
         {
             "name": "State Withholdings",
-            "category": "Debt",
+            "category": "Tax",
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
@@ -220,7 +220,7 @@
         },
         {
             "name": "Local Withholdings",
-            "category": "Debt",
+            "category": "Tax",
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
@@ -228,7 +228,7 @@
         },
         {
             "name": "401K Withdraw Withholding",
-            "category": "Debt",
+            "category": "Tax",
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
@@ -236,7 +236,7 @@
         },
         {
             "name": "401K Withdraw",
-            "category": "Debt",
+            "category": "Tax",
             "growth": "None",
             "rate": 0,
             "account_type": "non-networth-account",
@@ -1160,7 +1160,7 @@
         {
             "type": "payment_schedule",
             "display_type": "Loan Payments",
-            "display_event": false,
+            "display_event": true,
             "is_recurring": true,
             "can_be_reocurring": true,
             "weight": 100,
@@ -2052,7 +2052,7 @@
                     "description": "Envelope where 401k contributions are tracked",
                     "default": "Other (Retirement)",
                     "editable": true,
-"advanced_option": true
+"advanced_option": false
                 },
                 {
                     "type": "taxable_income_key",
@@ -2061,7 +2061,8 @@
                     "description": "Envelope where taxable income is tracked",
                     "default": "Taxable Income",
                     "editable": true,
-"advanced_option": true
+"advanced_option": true,
+"do_not_display_to_user": true
                 },
                 {
                     "type": "federal_withholdings_key",
@@ -2070,7 +2071,8 @@
                     "description": "Envelope where federal withholdings are tracked",
                     "default": "Federal Withholdings",
                     "editable": true,
-"advanced_option": true
+"advanced_option": true,
+"do_not_display_to_user": true
                 },
                 {
                     "type": "state_withholdings_key",
@@ -2079,7 +2081,8 @@
                     "description": "Envelope where state withholdings are tracked",
                     "default": "State Withholdings",
                     "editable": true,
-"advanced_option": true
+"advanced_option": true,
+"do_not_display_to_user": true
                 },
                 {
                     "type": "local_withholdings_key",
@@ -2088,7 +2091,8 @@
                     "description": "Envelope where local withholdings are tracked",
                     "default": "Local Withholdings",
                     "editable": true,
-"advanced_option": true
+"advanced_option": true,
+"do_not_display_to_user": true
                 }
             ],
             "updating_events": [
@@ -2204,7 +2208,7 @@
                     "type": "change_401k_contribution",
                     "display_type": "Adjust 401k Contribution",
                     "onboarding_stage": "full",
-                    "display_event": false,
+                    "display_event": true,
                     "icon": "sliders-horizontal",
                     "description": "Adjust the percentage of income contributed to 401k.",
                     "default_title": "401k Adjustment",
@@ -2335,7 +2339,7 @@
                     "description": "Federal income tax rate.",
                     "default": 0.12,
                     "editable": true,
-"advanced_option": false
+"advanced_option": true
                 },
                 {
                     "type": "state_income_tax",
@@ -2344,7 +2348,7 @@
                     "description": "State income tax rate.",
                     "default": 0.05,
                     "editable": true,
-"advanced_option": false
+"advanced_option": true
                 },
                 {
                     "type": "social_security_tax",
@@ -2353,7 +2357,7 @@
                     "description": "Social Security tax rate.",
                     "default": 0.062,
                     "editable": true,
-"advanced_option": false
+"advanced_option": true
                 },
                 {
                     "type": "medicare_tax",
@@ -2362,7 +2366,7 @@
                     "description": "Medicare tax rate.",
                     "default": 0.0145,
                     "editable": true,
-"advanced_option": false
+"advanced_option": true
                 },
                 {
                     "type": "p_401k_contribution",
@@ -2371,7 +2375,7 @@
                     "description": "Percent of wages contributed to 401k.",
                     "default": 0.04,
                     "editable": true,
-"advanced_option": false
+"advanced_option": true
                 },
                 {
                     "type": "employer_match",
@@ -2380,7 +2384,7 @@
                     "description": "Employer match percent for 401k.",
                     "default": 0.04,
                     "editable": true,
-"advanced_option": false
+"advanced_option": true
                 },
                 {
                     "type": "to_key",
@@ -2407,7 +2411,8 @@
                     "description": "Envelope where taxable income is tracked",
                     "default": "Taxable Income",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"do_not_display_to_user": true
                 },
                 {
                     "type": "federal_withholdings_key",
@@ -2416,7 +2421,8 @@
                     "description": "Envelope where federal withholdings are tracked",
                     "default": "Federal Withholdings",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"do_not_display_to_user": true
                 },
                 {
                     "type": "state_withholdings_key",
@@ -2425,7 +2431,8 @@
                     "description": "Envelope where state withholdings are tracked",
                     "default": "State Withholdings",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"do_not_display_to_user": true
                 },
                 {
                     "type": "local_withholdings_key",
@@ -2434,7 +2441,8 @@
                     "description": "Envelope where local withholdings are tracked",
                     "default": "Local Withholdings",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"do_not_display_to_user": true
                 }
             ],
             "updating_events": [

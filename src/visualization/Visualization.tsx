@@ -34,6 +34,7 @@ import {
   getNetWorthAndLockedOnDay,
   computeTimePoints,
 } from './viz_utils';
+import { createZoomHandlers } from './zoomHandlers';
 import type {
   TimeInterval,
   Datum
@@ -493,33 +494,12 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     intervalOverride?: TimeInterval,
     visibleRangeOverride?: { startDate: number, endDate: number },
   ) => {
-
-    console.log('🔍 Sampling data');
-
     const intervalToUse = intervalOverride || timeInterval;
+    const intervalDays = getIntervalInDays(intervalToUse);
+    console.log('🔍 Sampling data', { interval: intervalToUse, intervalDays });
 
-    // Get base range from override or current visible range
-    const baseRange = visibleRangeOverride || (currentVisibleRange ? {
-      startDate: currentVisibleRange.startDate,
-      endDate: currentVisibleRange.endDate
-    } : undefined);
-
-    // Apply padding to the range if we have one
-    const visibleRangeWidth = (baseRange?.endDate ?? 0) - (baseRange?.startDate ?? 0);
-    const padding = visibleRangeWidth * 5; // 5x padding
-
-    //console.log('🔍 Padding:', padding);
-    const paddedRange = {
-      startDate: Math.max(0, baseRange?.startDate ?? 0 - padding),
-      endDate: Math.min(80 * 365, baseRange?.endDate ?? 0 + padding)
-    };
-
-    // Save triplines as padded simulation boundaries
-    leftTripDateRef.current = paddedRange.startDate;
-    rightTripDateRef.current = paddedRange.endDate;
-
-    // compute the time points to set for the end results
-    const timePoints = computeTimePoints(startDate, endDate, getIntervalInDays(intervalToUse), baseRange, currentDay);
+    // Sample the full life range at the specified interval
+    const timePoints = computeTimePoints(startDate, endDate, intervalDays, undefined, currentDay);
 
     //Sample the allnetworth data at the time points and save to networth data
     const sampledNetWorthData = allNetWorthData.filter((data: Datum) => timePoints.includes(data.date));
@@ -652,7 +632,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         current_balances: currentDayBalances
       };
       updatePlanDirectly(updatedPlanWithResults);
-      sampleData();
 
       // Run simulation for locked plan if it exists and compare mode is on
       if (plan_locked && isCompareMode) {
@@ -733,7 +712,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     if (plan && schema) {
       // console.log('🚀 Running initial simulation');
       runSimulationManually();
-      sampleData();
     }
   }, []); // do not depend on plan and schema, only run on initial load
 
@@ -742,6 +720,12 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     //console.log('🎯 Manual simulation triggered with current interval and visible range:', timeInterval, currentVisibleRange);
     runSimulationManually();
   }, [runSimulationManually]);
+
+
+  // Trigger the sample data function any time the data changes
+  useEffect(() => {
+    sampleData();
+  }, [allNetWorthData, allLockedNetWorthData]);
 
   // Register the triggerSimulation function with the context when it's available so it can be used in other components
   useEffect(() => {
@@ -952,7 +936,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                 const triggerKey = `${winStart}-${winEnd}`;
                 if (lastTripTriggerKeyRef.current !== triggerKey) {
                   lastTripTriggerKeyRef.current = triggerKey;
-                  sampleData(undefined, { startDate: winStart, endDate: winEnd });
+                  //sampleData(undefined, { startDate: winStart, endDate: winEnd });
                 }
               }
             }
@@ -1265,46 +1249,24 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
             if (!firstDayAboveGoal) return null;
             return getNetWorthAndLockedOnDay(netWorthData, lockedNetWorthData, firstDayAboveGoal);
           }, [netWorthData, lockedNetWorthData, firstDayAboveGoal]);
-          const handleZoomToWindow = ({
-            years = 0,
-            months = 0,
-            days = 0,
-          }: { years?: number; months?: number; days?: number }) => {
-            const daysPerYear = 365;
-            const daysPerMonth = 30; // Approximate
-            const windowStart = currentDay;
-            const windowEnd =
-              currentDay +
-              (years * daysPerYear) +
-              (months * daysPerMonth) +
-              days;
-            const maxDate = Math.max(...netWorthData.map(d => d.date));
-            const clampedEnd = Math.min(windowEnd, maxDate);
-
-            const windowWidth = clampedEnd - windowStart;
-            if (windowWidth <= 0) return;
-
-            const targetScaleX = width / (xScale(clampedEnd) - xScale(windowStart));
-            const targetTranslateX = -xScale(windowStart) * targetScaleX + 80;
-
-            // Animate or immediately update based on IS_ANIMATION_ENABLED
-            animateZoom(
-              {
-                scaleX: zoom.transformMatrix.scaleX,
-                translateX: zoom.transformMatrix.translateX
-              },
-              {
-                scaleX: targetScaleX,
-                translateX: targetTranslateX
-              },
-              (state) => {
-                zoom.setTransformMatrix({
-                  ...zoom.transformMatrix,
-                  ...state
-                });
-              }
-            );
-          };
+          const {
+            handleZoomToWindow,
+            handleZoomToYearToDate,
+            handleZoomToMonthToDate,
+          } = createZoomHandlers({
+            animateZoom,
+            zoom,
+            xScale,
+            width,
+            netWorthData,
+            currentDay,
+            plan,
+            leftPadding: 80,
+            ytdPaddingDays: 15,
+            mtdPaddingDays: 2,
+            ytdTranslatePad: 60,
+            mtdTranslatePad: 60,
+          });
 
           // Assign the function to the ref for external access
           handleZoomToWindowRef.current = handleZoomToWindow;
@@ -1442,6 +1404,50 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                     }}
                   >
                     1yr
+                  </button>
+                )}
+                {isOnboardingAtOrAbove('updating_events') && (
+                  <button
+                    style={{
+                      background: 'rgba(51, 89, 102, 0.06)',
+                      color: '#335966',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      padding: '4px 12px',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      opacity: 0.85,
+                      transition: 'background 0.2s',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                    onClick={() => {
+                      handleZoomToMonthToDate();
+                    }}
+                  >
+                    CurM
+                  </button>
+                )}
+                {isOnboardingAtOrAbove('updating_events') && (
+                  <button
+                    style={{
+                      background: 'rgba(51, 89, 102, 0.06)',
+                      color: '#335966',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      padding: '4px 12px',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      opacity: 0.85,
+                      transition: 'background 0.2s',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                    }}
+                    onClick={() => {
+                      handleZoomToYearToDate();
+                    }}
+                  >
+                    CurYr
                   </button>
                 )}
                 {isOnboardingAtOrAbove('updating_events') && (
@@ -1720,7 +1726,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                     y2={height}
                     stroke="#03c6fc"
                     strokeWidth={2}
-                    strokeDasharray="4,4"
+                    strokeDasharray={closestPoint.date === currentDay ? undefined : "6,4"}
                     opacity={1}
                   />
                 )}
@@ -1833,7 +1839,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                     x2={xScale(currentDay)}
                     y1={0}
                     y2={height * 2}
-                    stroke="#2d3748" // even darker gray for today's line
+                    stroke={closestPoint && closestPoint.date === currentDay ? "#03c6fc" : "#2d3748"} // match closest-point line when aligned
                     strokeWidth={1 / globalZoom}
                     opacity={0.9}
                   />

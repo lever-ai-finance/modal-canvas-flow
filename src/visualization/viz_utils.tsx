@@ -612,18 +612,18 @@ export function computeTimePoints(
     currentDay?: number
 ): number[] {
     const points: number[] = [];
-    if (interval === 365 || interval === 182.5) {
-        for (let t = startDate; t <= endDate; t += interval) points.push(t);
-        if (points.length === 0 || points[points.length - 1] !== endDate) points.push(endDate);
-    } else {
-        points.push(startDate);
-        if (visibleRange) {
-            for (let t = visibleRange.startDate; t <= visibleRange.endDate; t += interval) {
-                points.push(t);
-            }
+    let t = startDate;
+    let lastPushed = Number.NEGATIVE_INFINITY;
+    while (t <= endDate) {
+        const day = Math.round(t);
+        if (day > lastPushed) {
+            points.push(day);
+            lastPushed = day;
         }
-        if (points[points.length - 1] !== endDate) points.push(endDate);
+        t += interval;
+        if (t - endDate > interval) break;
     }
+    if (points.length === 0 || points[points.length - 1] !== endDate) points.push(endDate);
     if (currentDay) {
         const idx = points.findIndex(t => t === currentDay);
         if (idx === -1) {

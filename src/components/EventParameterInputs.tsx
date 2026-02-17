@@ -173,35 +173,35 @@ const EventParameterInputs: React.FC<EventParameterInputsProps> = ({
             }
 
             // If current value is a non-regular envelope, show it as read-only
-            if (value && !isCurrentEnvelopeRegular) {
-                const displayName = getEnvelopeDisplayName(String(value));
-                const category = currentEnvelope?.category || 'Uncategorized';
+            // if (value && !isCurrentEnvelopeRegular) {
+            //     const displayName = getEnvelopeDisplayName(String(value));
+            //     const category = currentEnvelope?.category || 'Uncategorized';
 
-                return (
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                            <div className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-sm">
-                                {displayName} <span style={{ color: '#888', fontSize: '0.8em' }}>({category})</span>
-                                <span className="ml-2 text-xs text-gray-500">(Default)</span>
-                            </div>
-                        </div>
-                        {/* Growth rate display */}
-                        {growthType === "None" ? (
-                            <div className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100">
-                                <span className="font-mono">
-                                    No growth over time
-                                </span>
-                            </div>
-                        ) : growthRate !== undefined && growthRate > 0 ? (
-                            <div className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100">
-                                <span className="font-mono">
-                                    {growthType}: {(growthRate * 100).toFixed(2)}%/yr
-                                </span>
-                            </div>
-                        ) : null}
-                    </div>
-                );
-            }
+            //     return (
+            //         <div className="flex flex-col gap-1">
+            //             <div className="flex items-center gap-1">
+            //                 <div className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-sm">
+            //                     {displayName} <span style={{ color: '#888', fontSize: '0.8em' }}>({category})</span>
+            //                     <span className="ml-2 text-xs text-gray-500">(Default)</span>
+            //                 </div>
+            //             </div>
+            //             {/* Growth rate display */}
+            //             {growthType === "None" ? (
+            //                 <div className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100">
+            //                     <span className="font-mono">
+            //                         No growth over time
+            //                     </span>
+            //                 </div>
+            //             ) : growthRate !== undefined && growthRate > 0 ? (
+            //                 <div className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100">
+            //                     <span className="font-mono">
+            //                         {growthType}: {(growthRate * 100).toFixed(2)}%/yr
+            //                     </span>
+            //                 </div>
+            //             ) : null}
+            //         </div>
+            //     );
+            // }
 
             // Otherwise show the regular dropdown for editing
             return (

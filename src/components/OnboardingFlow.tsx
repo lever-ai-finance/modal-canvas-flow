@@ -16,6 +16,8 @@ import DatePicker from './DatePicker';
 // EditEnvelopeModal is provided by the parent; onboarding will call it via `onOpenEnvelope` prop
 import { CATEGORY_BASE_COLORS } from '../visualization/viz_utils';
 import type { Envelope, SchemaEvent, Event } from '../contexts/PlanContext';
+import {parseEvents} from '../hooks/schemaChecker';
+
 
 interface OnboardingFlowProps {
   isOpen: boolean;
@@ -54,13 +56,14 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   });
   const [loading, setLoading] = useState(false);
   const { upsertAnonymousOnboarding, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
-  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon} = usePlan();
+  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon, addEvent} = usePlan();
 
   const [selectedDefaultEnvelope, setSelectedDefaultEnvelope] = useState<string>('');
   const [selectedDefaultEvent, setSelectedDefaultEvent] = useState<string>('');
   const [showPersonalInfoAdvanced, setShowPersonalInfoAdvanced] = useState(false);
   const [showDebtValidationModal, setShowDebtValidationModal] = useState(false);
   const [debtWithoutPayment, setDebtWithoutPayment] = useState<Envelope | null>(null);
+  const [declareAccountEventIds, setDeclareAccountEventIds] = useState<number[]>([]);
   const [accounts, setAccounts] = useState<Record<string, number>>(() => {
     // initialize from plan if available on first render
     const init: Record<string, number> = {};
@@ -107,21 +110,41 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
 
   const handleNext = async () => {
     // After step 1 (Account Balances), save balances as initial values
-    if (currentStep === 1) {
-      // Update envelope initial values with entered balances
-      (plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).forEach((env: Envelope) => {
-        const balance = accounts[env.name] || 0;
-        if (balance !== 0 && env.envelope_id !== undefined) {
-          // For debt category, store as negative value
-          const finalBalance = env.category === 'Debt' ? -balance : balance;
-          // Update the envelope with the initial balance
-          updateEnvelope(env.envelope_id, { ...env, initial_value: finalBalance });
-        }
-      });
+    if (currentStep === 2) {
+      // Take the names and the balacnes for each envelope and put into declare accounts event
+      if (declareAccountEventIds.length > 0) {
+        declareAccountEventIds.forEach((eventId) => deleteEvent(eventId));
+      }
+
+      const accountEntries = (plan?.envelopes || [])
+        .filter((env: Envelope) => ['regular'].includes(env.account_type))
+        .map((env: Envelope) => ({
+          name: env.name,
+          amount: env.category === 'Debt' ? -(accounts[env.name] ?? 0) : (accounts[env.name] ?? 0)
+        }));
+
+      const chunkSize = 5;
+      const newEventIds: number[] = [];
+      for (let i = 0; i < accountEntries.length; i += chunkSize) {
+        const chunk = accountEntries.slice(i, i + chunkSize);
+        if (chunk.length === 0) continue;
+
+        const overrides: Record<string, string | number> = {};
+        chunk.forEach((entry, index) => {
+          const idx = index + 1;
+          overrides[`envelope${idx}`] = entry.name;
+          overrides[`amount${idx}`] = entry.amount;
+        });
+
+        const eventId = addEvent('declare_accounts', overrides);
+        newEventIds.push(eventId);
+      }
+
+      setDeclareAccountEventIds(newEventIds);
     }
 
     // After step 3 (personal info), save all user data to plan
-    if (currentStep === 4) {
+    if (currentStep === 1) {
       // Check for invalid birth date or today or in the future
       if (data.birthDate === '' || data.birthDate === new Date().toISOString().split('T')[0] || data.birthDate > new Date().toISOString().split('T')[0]) {
         toast.error('Please enter a valid birth date');
@@ -191,10 +214,11 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
       
       // Check if there's a payment_schedule event for each debt envelope
       for (const debtEnv of debtEnvelopes) {
-        const hasPaymentPlan = plan?.events?.some((event: Event) => 
-          event.type === 'payment_schedule' && 
-          event.from_envelope === debtEnv.name
-        );
+        const event_list = parseEvents(plan!);
+        const hasPaymentPlan = event_list.some((event: any) =>
+            event.type === 'payment_schedule' &&
+            event.parameters.to_key === debtEnv.name
+          );
         
         if (!hasPaymentPlan) {
           // Found a debt without payment plan - show validation modal
@@ -677,7 +701,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
 
       {/* Main Onboarding Dialog */}
       <Dialog open={isOpen} onOpenChange={() => { }}>
-      <DialogContent className="sm:max-w-2xl max-w-4xl mx-8">
+      <DialogContent className="sm:max-w-2xl max-w-4xl mx-8 max-h-[90vh] flex flex-col">
         <DialogHeader className="space-y-6">
           <DialogTitle className="text-center text-2xl font-light">
             {currentStepData.title}
@@ -695,7 +719,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
           </div>
         </DialogHeader>
 
-        <div className="py-8 px-2">
+        <div className="py-8 px-2 flex-1 overflow-y-auto">
           {currentStepData.content}
         </div>
 

@@ -265,6 +265,7 @@ export interface SchemaParameter {
     options?: string[];
     editable?: boolean;
     advanced_option?: boolean;
+    do_not_display_to_user?: boolean;
 }
 
 export interface SchemaUpdatingEvent {

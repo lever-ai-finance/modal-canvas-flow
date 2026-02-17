@@ -151,7 +151,12 @@ export async function runSimulation(
 
     const eventList = parseEvents(plan);
 
+
     while (day <= endDate) {
+
+        // Apply growth
+        applyGrowth(envelopes);
+
         applyEventsToDay(day, eventList, envelopes);
 
         // Take balance from envelopes, add balances and append to results
@@ -161,7 +166,7 @@ export async function runSimulation(
         for (const envelope in envelopes) {
             // set the non networthparts to those envleopes and then for networth parts accumulate total value
 
-            if (envelopes[envelope].account_type === "non-networth") {
+            if (envelopes[envelope].account_type === "non-networth-account") {
                 nonNetworthParts[envelope] = envelopes[envelope].balance;
             }
             else {
@@ -177,7 +182,78 @@ export async function runSimulation(
     return results;
 }
 
-const applyEventsToDay = (day: number, eventList: [any], envelopes: Record<string, any>) => {
+const applyGrowth = (envelopes: Record<string, any>) => {
+    for (const envelope in envelopes) {
+        const env = envelopes[envelope];
+        const annualRate = env.growth_rate || 0;
+        const dailyRate = annualRate / 365;
+        env._days_elapsed = (env._days_elapsed ?? 0) + 1;
+        switch (env.growth_type) {
+            case "None":
+                break;
+            case "Simple Interest": {
+                if (env.balance !== 0 && dailyRate !== 0) {
+                    env.balance += env.balance * dailyRate;
+                }
+                break;
+            }
+            case "Appreciation": {
+                if (env.balance !== 0 && dailyRate !== 0) {
+                    env.balance += env.balance * dailyRate;
+                }
+                break;
+            }
+            case "Daily Compound": {
+                if (env.balance !== 0 && dailyRate !== 0) {
+                    env.balance *= (1 + dailyRate);
+                }
+                break;
+            }
+            case "Monthly Compound": {
+                if (env.balance !== 0 && annualRate !== 0) {
+                    const daysPerMonth = 30;
+                    if (env._days_elapsed % daysPerMonth === 0) {
+                        const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+                        env.balance *= (1 + monthlyRate);
+                    }
+                }
+                break;
+            }
+            case "Yearly Compound": {
+                if (env.balance !== 0 && annualRate !== 0) {
+                    const daysPerMonth = 30;
+                    if (env._days_elapsed % daysPerMonth === 0) {
+                        const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+                        env.balance *= (1 + monthlyRate);
+                    }
+                }
+                break;
+            }
+            case "Depreciation": {
+                if (env.balance !== 0 && dailyRate !== 0) {
+                    env.balance -= env.balance * dailyRate;
+                }
+                break;
+            }
+            case "Depreciation (Days)": {
+                const daysOfUsefulness = Number(env.days_of_usefulness || 0);
+                if (daysOfUsefulness > 0) {
+                    if (env._depreciation_start_balance == null || env.balance > env._depreciation_start_balance) {
+                        env._depreciation_start_balance = env.balance;
+                    }
+                    const dailyDecrease = env._depreciation_start_balance / daysOfUsefulness;
+                    env.balance = Math.max(0, env.balance - dailyDecrease);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+
+    }
+}
+
+const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<string, any>) => {
     for (const event of eventList) {
         // check to see if I should even apply the event
         //console.log("Event Title: ", event.title);
@@ -196,7 +272,17 @@ const applyEventsToDay = (day: number, eventList: [any], envelopes: Record<strin
                     transfer_money(day, event, envelopes);
                     break;
                 case "manual_correction":
-
+                    manual_correction(day, event, envelopes);
+                    break;
+                case "payment_schedule":
+                    payment_schedule(day, event, envelopes);
+                    break;
+                case "get_job":
+                    get_job(day, event, envelopes);
+                    break;
+                case "get_wage_job":
+                    get_wage_job(day, event, envelopes);
+                    break;
                 // More event types can be added here
                 default:
                     break;
@@ -331,12 +417,20 @@ const declare_accounts = (day: number, event: any, envelopes: Record<string, any
 
     //event logic
     if (params.start_time == day) {
-        // Set balances of each evenlope to the amount
-        envelopes[params.envelope1].balance = params.amount1;
-        envelopes[params.envelope2].balance = params.amount2;
-        envelopes[params.envelope3].balance = params.amount3;
-        envelopes[params.envelope4].balance = params.amount4;
-        envelopes[params.envelope5].balance = params.amount5;
+        // Set balances of each envelope to the amount when defined
+        const pairs: Array<[string | undefined, number | undefined]> = [
+            [params.envelope1, params.amount1],
+            [params.envelope2, params.amount2],
+            [params.envelope3, params.amount3],
+            [params.envelope4, params.amount4],
+            [params.envelope5, params.amount5]
+        ];
+
+        for (const [envelopeKey, amount] of pairs) {
+            if (envelopeKey && envelopes[envelopeKey]) {
+                envelopes[envelopeKey].balance = amount ?? 0;
+            }
+        }
     }
 }
 
@@ -384,6 +478,31 @@ const calculate_loan_payment = (principal: number, annual_interest_rate: number,
     const monthly_payment = (principal * monthly_interest_rate) / (1 - Math.pow(1 + monthly_interest_rate, -number_of_payments));
     return monthly_payment;
 }
+
+const payment_schedule = (day: number, event: any, envelopes: Record<string, any>) => {
+    const params = event.parameters as AllEventTypes.payment_scheduleParams;
+
+    if (params.start_time == day) {
+        //Pay off loan in reocurring payments 
+        envelopes[params.from_key].balance -= params.payment;
+        envelopes[params.to_key].balance += params.payment;
+        console.log(`Payment Schedule executed on day ${day}: Paid ${params.payment} from ${params.from_key} to ${params.to_key}`);
+    }
+    else if (event.is_recurring && day <= params.end_time) {
+        if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
+            // Check if loan balance is less than payment, if so then just pay off remaining balance
+            if (envelopes[params.to_key].balance*-1 < params.payment) {
+                console.log('blacne, and payment', envelopes[params.to_key].balance, params.payment);
+                envelopes[params.from_key].balance += envelopes[params.to_key].balance;
+                envelopes[params.to_key].balance = 0;
+                return;
+            }
+            envelopes[params.from_key].balance -= params.payment;
+            envelopes[params.to_key].balance += params.payment;
+        }
+    }
+}
+
 
 const loan = (day: number, event: any, envelopes: Record<string, any>) => {
     const params = event.parameters as AllEventTypes.loanParams;
@@ -486,9 +605,9 @@ const get_job = (day: number, event: any, envelopes: Record<string, any>) => {
                     break;
                 }
     
-                case "reoccuring_raise": {
+                case "reoccurring_raise": {
                     const uParams = updating_event.parameters as AllEventTypes.get_job_reoccurring_raiseParams;
-
+                    console.log("uparam", uParams);
                     // reocurring raise logic
                     if ((day - uParams.start_time) % Math.round(uParams.frequency_days) == 0 && day >= uParams.start_time && day <= uParams.end_time) {
                         params.salary += uParams.salary_increase;
@@ -514,7 +633,8 @@ const get_job = (day: number, event: any, envelopes: Record<string, any>) => {
     }
 
     // Calculate if its payday
-    if ((day - params.start_time) % params.pay_period == 0) {
+    const payPeriodDays = Math.round(365 / params.pay_period);
+    if (day <= params.end_time && (day - params.start_time) % payPeriodDays == 0) {
         //Calculate paycheck
         const grosspay = params.salary / params.pay_period;
 
@@ -539,6 +659,71 @@ const get_job = (day: number, event: any, envelopes: Record<string, any>) => {
         envelopes[params.federal_withholdings_key!].balance += federal + social + medicare;
         envelopes[params.state_withholdings_key!].balance += state;
         envelopes[params.local_withholdings_key!].balance += local;
+    }
+}
+
+const get_wage_job = (day: number, event: any, envelopes: Record<string, any>) => {
+    const params = event.parameters as AllEventTypes.get_wage_jobParams;
+
+    if (event.updating_events.length > 0) {
+        for (const updating_event of event.updating_events) {
+            switch (updating_event.type) {
+                case "get_a_raise": {
+                    const uParams = updating_event.parameters as AllEventTypes.get_wage_job_get_a_raiseParams;
+                    if (uParams.start_time == day) {
+                        params.hourly_wage = uParams.new_hourly_wage;
+                    }
+                    break;
+                }
+                case "change_hours": {
+                    const uParams = updating_event.parameters as AllEventTypes.get_wage_job_change_hoursParams;
+                    if (uParams.start_time == day) {
+                        params.hours_per_week = uParams.new_hours;
+                    }
+                    break;
+                }
+                case "change_401k_contribution": {
+                    const uParams = updating_event.parameters as AllEventTypes.get_wage_job_change_401k_contributionParams;
+                    if (uParams.start_time == day) {
+                        params.p_401k_contribution = uParams.p_401k_contribution;
+                    }
+                    break;
+                }
+                case "change_employer_match": {
+                    const uParams = updating_event.parameters as AllEventTypes.get_wage_job_change_employer_matchParams;
+                    if (uParams.start_time == day) {
+                        params.employer_match = uParams.new_match_rate;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    const payPeriodDays = Math.round(params.frequency_days || (365 / params.pay_period));
+    if (day <= params.end_time && (day - params.start_time) % payPeriodDays == 0) {
+        const hoursPerPeriod = params.hours_per_week * (payPeriodDays / 7);
+        const grosspay = params.hourly_wage * hoursPerPeriod;
+
+        const employee_401K = grosspay * params.p_401k_contribution;
+        const employer_match = grosspay * params.employer_match;
+
+        const taxable_income = grosspay - employee_401K;
+
+        const federal = taxable_income * params.federal_income_tax;
+        const state = taxable_income * params.state_income_tax;
+        const social = grosspay * params.social_security_tax;
+        const medicare = grosspay * params.medicare_tax;
+
+        const total_withheld = federal + state + social + medicare;
+        const netpay = grosspay - employee_401K - total_withheld;
+
+        envelopes[params.to_key].balance += netpay;
+        envelopes[params.p_401k_key!].balance += employee_401K + employer_match;
+        envelopes[params.taxable_income_key!].balance += taxable_income;
+        envelopes[params.federal_withholdings_key!].balance += federal + social + medicare;
+        envelopes[params.state_withholdings_key!].balance += state;
+        envelopes[params.local_withholdings_key!].balance += 0;
     }
 }
 

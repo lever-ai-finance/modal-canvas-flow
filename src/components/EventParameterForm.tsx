@@ -302,6 +302,11 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
         return schemaEvent?.parameters.find(p => p.type === paramType);
     };
 
+    const shouldDisplayParam = (eventType: string, paramType: string) => {
+        const schemaParam = getSchemaParam(eventType, paramType);
+        return schemaParam?.do_not_display_to_user !== true;
+    };
+
 
 
     if (!schema || !plan) return null;
@@ -375,7 +380,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
             .filter((param) => shouldShowParameter(param.type))
             .filter((param) => {
                 const schemaParam = getSchemaParam((currentEvent as any).type, param.type);
-                return schemaParam?.editable !== false;
+                return schemaParam?.editable !== false && schemaParam?.do_not_display_to_user !== true;
             })
         : [];
 
@@ -599,6 +604,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                     {['frequency_days', 'end_time'].map((type) =>
                                                         currentEvent.parameters
                                                             .filter(param => param.type === type)
+                                                            .filter(param => shouldDisplayParam((currentEvent as any).type, param.type))
                                                             .map(param => (
                                                                 <div key={param.id} className="space-y-1">
                                                                     <Label htmlFor={param.id.toString()} className="text-sm font-medium">
@@ -775,11 +781,13 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                                     }
                                                                     return true;
                                                                 }).filter(param => {
+                                                                    return shouldDisplayParam(ue.type, param.type);
+                                                                }).filter(param => {
                                                                     // Filter out read-only parameters (they're displayed on the right side)
                                                                     const mainSchemaEvent = schema?.events.find(e => e.type === mainEvent.type);
                                                                     const updatingSchemaEvent = mainSchemaEvent?.updating_events?.find(ue_schema => ue_schema.type === ue.type);
                                                                     const schemaParam = updatingSchemaEvent?.parameters.find(p => p.type === param.type);
-                                                                    return schemaParam?.editable !== false;
+                                                                    return schemaParam?.editable !== false && schemaParam?.do_not_display_to_user !== true;
                                                                 }).map(param => (
                                                                     <div key={param.id} className="space-y-1">
                                                                         <Label className="text-sm font-medium">
