@@ -34,32 +34,20 @@ const ExitViewingModeDialog: React.FC<ExitViewingModeDialogProps> = ({
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
-                {/* UX Testing Promotion Section */}
-                <div className="bg-primary/5 border-b border-primary/10 p-6 -mt-6 -mx-6 mb-6">
-                    <div className="text-center">
-                        <p className="text-sm text-muted-foreground mb-2">
-                            🔒 <strong>Early Access Available</strong> - Tool currently in development
-                        </p>
-                        <p className="text-xs text-muted-foreground mb-3">
-                            Get exclusive access by joining our UX testing program
-                        </p>
-                    </div>
-                </div>
-
                 <DialogHeader>
-                    <DialogTitle>Want to Create Your Own Plan?</DialogTitle>
+                    <DialogTitle>Go to Financial Timeline?</DialogTitle>
                     <DialogDescription className="space-y-2">
+                        <p>See how everything connects—past, present, and future.</p>
                         <p>
-                            Our financial planning tool is currently in active development and is exclusively available to UX testers.
+                            Create a personalized financial timeline that brings your income, savings, debt, and goals into one connected view.
+                            Model decisions in context and see how each choice ripples across everything else over time.
                         </p>
-                        <p>
-                            Share just 1 hour of feedback with our financial coach and get lifetime premium access as one of our first users!
-                        </p>
+                        <p>This is where isolated decisions become a coherent plan—and where clarity compounds.</p>
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="flex gap-3 pt-4">
                     <Button variant="outline" onClick={onClose} disabled={isLoading} className="flex-1">
-                        Maybe Later
+                        Stay in Calculator
                     </Button>
                     <Button onClick={handleConfirm} disabled={isLoading} className="flex-1">
                         {isLoading ? (
@@ -68,7 +56,7 @@ const ExitViewingModeDialog: React.FC<ExitViewingModeDialogProps> = ({
                                 Loading...
                             </>
                         ) : (
-                            'Schedule UX Session →'
+                            'Go to Timeline →'
                         )}
                     </Button>
                 </DialogFooter>

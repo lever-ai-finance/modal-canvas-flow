@@ -283,6 +283,9 @@ const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<strin
                 case "get_wage_job":
                     get_wage_job(day, event, envelopes);
                     break;
+                case "monthly_budgeting":
+                    monthly_budgeting(day, event, envelopes);
+                    break;
                 // More event types can be added here
                 default:
                     break;
