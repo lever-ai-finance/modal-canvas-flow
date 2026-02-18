@@ -351,7 +351,7 @@
                     "description": "Icon to display on the graph",
                     "default": "life-event",
                     "editable": true,
-"advanced_option": true
+"advanced_option": false
                         
                 },
                 {
@@ -361,7 +361,7 @@
                     "description": "When the life event occurs",
                     "default": 0,
                     "editable": true,
-"advanced_option": true
+"advanced_option": false
                 }
             ]
         },
@@ -2697,7 +2697,7 @@
             "type": "retirement",
             "display_type": "Retirement",
             "onboarding_stage": "full",
-            "display_event": true,
+            "display_event": false,
             "is_recurring": true,
             "can_be_reocurring": false,
             "weight": 100,
@@ -2790,18 +2790,18 @@
                 },
                 {
                     "type": "p_401k_key",
-                    "display_name": "401K Envelope",
+                    "display_name": "401K Account",
                     "parameter_units": "envelope",
-                    "description": "401K envelope to transfer from",
+                    "description": "401K account to transfer from",
                     "default": "Other (Retirement)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "roth_ira_key",
-                    "display_name": "ROTH IRA Envelope",
+                    "display_name": "ROTH IRA Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where ROTH IRA is tracked",
+                    "description": "ROTH IRA account to transfer from",
                     "default": "RothIRA",
                     "editable": true,
 "advanced_option": false
@@ -2822,7 +2822,8 @@
                     "description": "Tax Envelope where 401K withdrawals are withheld",
                     "default": "401K Withdraw Withholding",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"display_to_user": false
                 },
                 {
                     "type": "p_401k_withdraw_key",
@@ -2831,7 +2832,8 @@
                     "description": "Tax Envelope where 401K withdrawals are deposited",
                     "default": "401K Withdraw",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"display_to_user": false
                 },
                 {
                     "type": "roth_ira_withdraw_key",
@@ -2840,7 +2842,8 @@
                     "description": "Tax Envelope where ROTH IRA withdrawals are deposited",
                     "default": "ROTH IRA Withdraw",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"display_to_user": false
                 },
                 {
                     "type": "roth_ira_principle_key",
@@ -2849,7 +2852,8 @@
                     "description": "Tax Envelope where ROTH IRA principle is tracked",
                     "default": "ROTH IRA Principle",
                     "editable": true,
-"advanced_option": false
+"advanced_option": false,
+"display_to_user": false
                 }
             ]
         },
@@ -2992,7 +2996,7 @@
                     "parameter_units": "date",
                     "description": "When the mortgage will be paid off (calculated automatically).",
                     "default": 0,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 }
             ],
@@ -3072,7 +3076,7 @@
                 {
                     "type": "late_payment",
                     "display_type": "Late Payment",
-                    "display_event": true,
+                    "display_event": false,
                     "icon": "clock",
                     "description": "Make a mortgage payment late.",
                     "parameters": [
@@ -3117,7 +3121,7 @@
                 {
                     "type": "sell_house",
                     "display_type": "Sell House",
-                    "display_event": true,
+                    "display_event": false,
                     "icon": "dollar-sign",
                     "description": "Sell your home and receive proceeds.",
                     "parameters": [
@@ -3154,6 +3158,42 @@
                             "parameter_units": "envelope",
                             "description": "Envelope where sale proceeds are deposited",
                             "default": "Other (Cash)",
+                            "editable": true,
+"advanced_option": false
+                        }
+                    ]
+                },
+                {
+                    "type": "refinance_home",
+                    "display_type": "Refinance Home",
+                    "display_event": true,
+                    "icon": "repeat",
+                    "description": "Refinance your home for a new loan amount and term.",
+                    "parameters": [
+                        {
+                            "type": "start_time",
+                            "display_name": "Refinance Date",
+                            "parameter_units": "date",
+                            "description": "When the refinance takes effect",
+                            "default": 0,
+                            "editable": true,
+"advanced_option": false
+                        },
+                        {
+                            "type": "new_loan_term_years",
+                            "display_name": "New Loan Term",
+                            "parameter_units": "years",
+                            "description": "Length of new mortgage in years.",
+                            "default": 30,
+                            "editable": true,
+"advanced_option": false
+                        },
+                        {
+                            "type": "new_home_mortgage_envelope",
+                            "display_name": "New Mortgage Envelope",
+                            "parameter_units": "envelope",
+                            "description": "Envelope where the refinanced home mortgage debt is tracked.",
+                            "default": "Refinanced Home Mortgage",
                             "editable": true,
 "advanced_option": false
                         }
@@ -3226,15 +3266,15 @@
                     "parameter_units": "date",
                     "description": "When the recurring purchase ends ",
                     "default": 3650,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
                     "type": "frequency_days",
-                    "display_name": "Frequency (Days)",
+                    "display_name": "Car payment Schedule",
                     "parameter_units": "days",
-                    "description": "Number of days between each purchase ",
-                    "default": 365,
+                    "description": "Number of days between Car payments  ",
+                    "default": 30,
                     "editable": true,
 "advanced_option": false
                 },
@@ -3296,8 +3336,8 @@
             "updating_events": [
                 {
                     "type": "pay_loan_early",
-                    "display_type": "Pay Loan Early",
-                    "display_event": false,
+                    "display_type": "Pay Car Loan Early",
+                    "display_event": true,
                     "is_recurring": false,
                     "can_be_reocurring": true,
                     "icon": "badge-dollar-sign",

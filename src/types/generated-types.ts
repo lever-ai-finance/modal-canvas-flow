@@ -433,13 +433,13 @@ export interface buy_houseFunctionState extends EventFunctionState {
 export interface buy_houseParams {
   start_time: number;
   home_value: number;
-  loan_term_years: number;
+  loan_term_years: string;
   downpayment: number;
   from_key: string;
   to_key: string;
   mortgage_envelope: string;
   property_tax_rate: number;
-  end_time: number;
+  end_time?: number;
 }
 
 export interface buy_house_new_appraisalParams {
@@ -468,6 +468,12 @@ export interface buy_house_sell_houseParams {
   to_key: string;
 }
 
+export interface buy_house_refinance_homeParams {
+  start_time: number;
+  new_loan_term_years: number;
+  new_home_mortgage_envelope: string;
+}
+
 export type buy_carFunctionTypes = "downpayment" | "loan_payment" | "car_asset" | "car_loan" | "final_car_payment_correction";
 
 export interface buy_carFunctionState extends EventFunctionState {
@@ -480,7 +486,7 @@ export interface buy_carFunctionState extends EventFunctionState {
 
 export interface buy_carParams {
   start_time: number;
-  end_time: number;
+  end_time?: number;
   frequency_days: number;
   car_value: number;
   loan_term_years: number;

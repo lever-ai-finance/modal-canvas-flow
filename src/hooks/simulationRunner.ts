@@ -1,15 +1,16 @@
-import type { Plan, Schema, Event } from '../contexts/PlanContext';
+import type { Plan, Schema } from '../contexts/PlanContext';
 import type { Datum } from '../visualization/viz_utils';
 import { validateProblem, extractSchema, parseEvents } from './schemaChecker';
 import type * as AllEventTypes from '../types/generated-types';
-import { Day } from 'react-day-picker';
+
+type ParameterUpdate = { eventId: number, paramType: string, value: number };
 
 export async function runSimulation(
     plan: Plan,
     schema: Schema,
     startDate: number,
     endDate: number,
-    onParameterUpdate?: (updates: Array<{ eventId: number, paramType: string, value: number }>) => void
+    onParameterUpdate?: (updates: ParameterUpdate[]) => void
 ): Promise<Datum[]> {
 
     const schemaMap = extractSchema(schema);
@@ -35,6 +36,11 @@ export async function runSimulation(
     }
 
     const results: Datum[] = [];
+    const pendingParameterUpdates = new Map<string, ParameterUpdate>();
+
+    const queueParameterUpdate = (update: ParameterUpdate) => {
+        pendingParameterUpdates.set(`${update.eventId}:${update.paramType}`, update);
+    };
 
     let day = startDate; // Start simulation on the first day
 
@@ -46,7 +52,7 @@ export async function runSimulation(
         // Apply growth
         applyGrowth(envelopes);
 
-        applyEventsToDay(day, eventList, envelopes);
+        applyEventsToDay(day, eventList, envelopes, queueParameterUpdate);
 
         // Take balance from envelopes, add balances and append to results
         const parts: { [key: string]: number } = {};
@@ -66,6 +72,11 @@ export async function runSimulation(
 
         results.push({ date: day, value: total_networth, parts: parts, nonNetworthParts: nonNetworthParts });
         day++; //go to next day
+    }
+
+    // After simulation update the parameters that were queued for update
+    if (onParameterUpdate && pendingParameterUpdates.size > 0) {
+        onParameterUpdate(Array.from(pendingParameterUpdates.values()));
     }
 
     return results;
@@ -100,20 +111,17 @@ const applyGrowth = (envelopes: Record<string, any>) => {
             }
             case "Monthly Compound": {
                 if (env.balance !== 0 && annualRate !== 0) {
-                    const daysPerMonth = 30;
-                    if (env._days_elapsed % daysPerMonth === 0) {
-                        const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
-                        env.balance *= (1 + monthlyRate);
-                    }
+                    const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+                    const dailyEquivalentRate = Math.pow(1 + monthlyRate, 12 / 365) - 1;
+                    env.balance *= (1 + dailyEquivalentRate);
                 }
                 break;
             }
             case "Yearly Compound": {
                 if (env.balance !== 0 && annualRate !== 0) {
-                    const daysPerMonth = 30;
-                    if (env._days_elapsed % daysPerMonth === 0) {
-                        const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
-                        env.balance *= (1 + monthlyRate);
+                    const daysPerYear = 365;
+                    if (env._days_elapsed % daysPerYear === 0) {
+                        env.balance *= (1 + annualRate);
                     }
                 }
                 break;
@@ -142,7 +150,12 @@ const applyGrowth = (envelopes: Record<string, any>) => {
     }
 }
 
-const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<string, any>) => {
+const applyEventsToDay = (
+    day: number,
+    eventList: any[],
+    envelopes: Record<string, any>,
+    onParameterUpdate?: (update: ParameterUpdate) => void
+) => {
     for (const event of eventList) {
         // check to see if I should even apply the event
         //console.log("Event Title: ", event.title);
@@ -176,8 +189,12 @@ const applyEventsToDay = (day: number, eventList: any[], envelopes: Record<strin
                     monthly_budgeting(day, event, envelopes);
                     break;
                 case "buy_house":
-                    buy_house(day, event, envelopes);
+                    buy_house(day, event, envelopes, onParameterUpdate);
                     break;
+                case "buy_car":
+                    buy_car(day, event, envelopes, onParameterUpdate);
+                    break;
+
                 // More event types can be added here
                 default:
                     break;
@@ -344,6 +361,18 @@ const calculateMortgagePayment = (principal: number, annualRateDecimal: number, 
     const numberOfPayments = termYears * 12;
     if (monthlyRate === 0) return principal / numberOfPayments;
     return (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -numberOfPayments));
+}
+
+const calculateInstallmentPayment = (
+    principal: number,
+    annualRateDecimal: number,
+    totalPayments: number,
+    paymentsPerYear: number
+): number => {
+    if (principal <= 0 || totalPayments <= 0 || paymentsPerYear <= 0) return 0;
+    const ratePerPayment = annualRateDecimal / paymentsPerYear;
+    if (ratePerPayment === 0) return principal / totalPayments;
+    return (principal * ratePerPayment) / (1 - Math.pow(1 + ratePerPayment, -totalPayments));
 }
 
 const payment_schedule = (day: number, event: any, envelopes: Record<string, any>) => {
@@ -594,7 +623,119 @@ const get_wage_job = (day: number, event: any, envelopes: Record<string, any>) =
     }
 }
 
-const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
+const buy_car = (
+    day: number,
+    event: any,
+    envelopes: Record<string, any>,
+    onParameterUpdate?: (update: ParameterUpdate) => void
+) => {
+    const params = event.parameters as AllEventTypes.buy_carParams;
+
+    if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.car_loan_envelope]) {
+        return;
+    }
+
+    const paymentIntervalDays = Math.max(1, Number(params.frequency_days || 30));
+    const loanTermYears = Number(params.loan_term_years || 0);
+
+    if (params.start_time == day && !event._car_loan_state) {
+        const principal = Math.max(0, params.car_value - params.downpayment);
+        const annualRate = envelopes[params.car_loan_envelope]?.growth_rate ?? 0;
+        const totalPayments = Math.max(0, Math.round((loanTermYears * 365) / paymentIntervalDays));
+        const paymentsPerYear = 365 / paymentIntervalDays;
+        const paymentAmount = calculateInstallmentPayment(principal, annualRate, totalPayments, paymentsPerYear);
+        const projectedEndDay = day + Math.ceil(paymentIntervalDays * totalPayments);
+
+        event._car_loan_state = {
+            payment_amount: paymentAmount,
+            remaining_principal: principal,
+            start_time: day,
+            end_day: projectedEndDay,
+            next_payment_day: day + paymentIntervalDays,
+            total_payments: totalPayments,
+            payments_made: 0,
+            payment_interval_days: paymentIntervalDays
+        };
+
+        envelopes[params.from_key].balance -= params.downpayment;
+        envelopes[params.to_key].balance += params.car_value;
+        envelopes[params.car_loan_envelope].balance -= principal;
+    }
+
+    if (event.updating_events.length > 0) {
+        for (const updating_event of event.updating_events) {
+            switch (updating_event.type) {
+                case 'pay_loan_early': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_car_pay_loan_earlyParams;
+                    if (uParams.start_time == day && event._car_loan_state) {
+                        envelopes[uParams.from_key].balance -= uParams.amount;
+                        envelopes[params.car_loan_envelope].balance += uParams.amount;
+
+                        event._car_loan_state.remaining_principal = Math.max(0, -envelopes[params.car_loan_envelope].balance);
+                        if (event._car_loan_state.remaining_principal <= 0) {
+                            event._car_loan_state.end_day = day;
+                            params.end_time = day;
+                            if (onParameterUpdate && typeof event.id === 'number') {
+                                onParameterUpdate({ eventId: event.id, paramType: 'end_time', value: day });
+                            }
+                        }
+                    }
+                    break;
+                }
+                case 'car_repair': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_car_car_repairParams;
+                    if (uParams.start_time == day) {
+                        envelopes[uParams.from_key].balance -= uParams.cost;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (event._car_loan_state && day >= event._car_loan_state.start_time && day <= event._car_loan_state.end_day) {
+        const state = event._car_loan_state;
+        const outstandingDebt = Math.max(0, -envelopes[params.car_loan_envelope].balance);
+        state.remaining_principal = outstandingDebt;
+
+        const interval = Number(state.payment_interval_days || paymentIntervalDays);
+        const canMakePayment =
+            outstandingDebt > 0 &&
+            (state.total_payments == null || state.payments_made < state.total_payments) &&
+            day + 1e-9 >= (state.next_payment_day ?? (state.start_time + interval));
+
+        if (canMakePayment) {
+            const scheduledPayment = Number(state.payment_amount || 0);
+            const actualPayment = Math.min(scheduledPayment, outstandingDebt);
+
+            envelopes[params.from_key].balance -= actualPayment;
+            envelopes[params.car_loan_envelope].balance += actualPayment;
+
+            state.remaining_principal = Math.max(0, -envelopes[params.car_loan_envelope].balance);
+            state.payments_made = (state.payments_made ?? 0) + 1;
+            state.next_payment_day = (state.next_payment_day ?? (state.start_time + interval)) + interval;
+
+            const isLastPayment =
+                state.remaining_principal <= 0 ||
+                (state.total_payments != null && state.payments_made >= state.total_payments);
+
+            if (isLastPayment) {
+                state.end_day = day;
+                params.end_time = day;
+                if (onParameterUpdate && typeof event.id === 'number') {
+                    onParameterUpdate({ eventId: event.id, paramType: 'end_time', value: day });
+                }
+            }
+        }
+    }
+}
+
+const buy_house = (
+    day: number,
+    event: any,
+    envelopes: Record<string, any>,
+    onParameterUpdate?: (update: ParameterUpdate) => void
+) => {
     const params = event.parameters as AllEventTypes.buy_houseParams;
     // Check if any of the envelopes are undefined if so then skip
     if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.mortgage_envelope]) {
@@ -610,6 +751,8 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
         const principal = Math.max(0, params.home_value - params.downpayment);
         const annualRate = envelopes[params.mortgage_envelope]?.growth_rate ?? 0;
         const monthlyPayment = calculateMortgagePayment(principal, annualRate, loan_term_years);
+        const totalPayments = Math.max(0, Math.round(loan_term_years * 12));
+        const projectedEndDay = day + Math.ceil((365 / 12) * totalPayments);
 
         event._home_value = params.home_value;
         event._mortgage_state = {
@@ -617,7 +760,10 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
             remaining_principal: principal,
             interest_rate: annualRate,
             start_time: day,
-            end_day: params.end_time && params.end_time > 0 ? params.end_time : day + loan_term_years * 365
+            end_day: projectedEndDay,
+            next_payment_day: day + (365 / 12),
+            total_payments: totalPayments,
+            payments_made: 0
         };
 
         if (isEnabled('downpayment')) {
@@ -637,10 +783,8 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
                 case 'new_appraisal': {
                     const uParams = updating_event.parameters as AllEventTypes.buy_house_new_appraisalParams;
                     if (uParams.start_time == day) {
-                        const prevValue = event._home_value ?? params.home_value;
-                        event._home_value = uParams.appraised_value;
                         if (isEnabled('home_asset')) {
-                            envelopes[params.to_key].balance += (uParams.appraised_value - prevValue);
+                            envelopes[params.to_key].balance = uParams.appraised_value;
                         }
                     }
                     break;
@@ -649,9 +793,12 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
                     const uParams = updating_event.parameters as AllEventTypes.buy_house_extra_mortgage_paymentParams;
                     if (uParams.start_time == day && event._mortgage_state) {
                         envelopes[uParams.from_key].balance -= uParams.amount;
-                        event._mortgage_state.remaining_principal = Math.max(0, event._mortgage_state.remaining_principal - uParams.amount);
                         if (isEnabled('morgage_loan')) {
                             envelopes[params.mortgage_envelope].balance += uParams.amount;
+                            event._mortgage_state.remaining_principal = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+                            if (event._mortgage_state.remaining_principal <= 0) {
+                                event._mortgage_state.end_day = day;
+                            }
                         }
                     }
                     break;
@@ -672,8 +819,8 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
                         }
                         envelopes[uParams.to_key].balance += uParams.sale_price;
 
-                        if (event._mortgage_state && event._mortgage_state.remaining_principal > 0) {
-                            const payoff = event._mortgage_state.remaining_principal;
+                        if (event._mortgage_state) {
+                            const payoff = Math.max(0, -envelopes[params.mortgage_envelope].balance);
                             envelopes[uParams.to_key].balance -= payoff;
                             if (isEnabled('morgage_loan')) {
                                 envelopes[params.mortgage_envelope].balance += payoff;
@@ -684,23 +831,69 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
                     }
                     break;
                 }
+                case 'refinance_home': {
+                    const uParams = updating_event.parameters as AllEventTypes.buy_house_refinance_homeParams;
+                    if (uParams.start_time == day && event._mortgage_state) {
+                        const newEnvelopeKey = uParams.new_home_mortgage_envelope;
+                        if (!newEnvelopeKey || !envelopes[newEnvelopeKey]) {
+                            break;
+                        }
+
+                        const remainingPrincipal = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+                        const previousEnvelopeKey = params.mortgage_envelope;
+
+                        if (isEnabled('morgage_loan')) {
+                            if (previousEnvelopeKey && envelopes[previousEnvelopeKey]) {
+                                envelopes[previousEnvelopeKey].balance = 0;
+                            }
+                            envelopes[newEnvelopeKey].balance -= remainingPrincipal;
+                        }
+
+                        const newLoanTermYears = Number(uParams.new_loan_term_years || loan_term_years);
+                        const newAnnualRate = envelopes[newEnvelopeKey]?.growth_rate ?? event._mortgage_state.interest_rate ?? 0;
+                        const newMonthlyPayment = calculateMortgagePayment(remainingPrincipal, newAnnualRate, newLoanTermYears);
+                        const totalPayments = Math.max(0, Math.round(newLoanTermYears * 12));
+                        const projectedEndDay = day + Math.ceil((365 / 12) * totalPayments);
+
+                        params.mortgage_envelope = newEnvelopeKey;
+                        params.loan_term_years = String(newLoanTermYears);
+
+                        event._mortgage_state = {
+                            monthly_payment: newMonthlyPayment,
+                            remaining_principal: remainingPrincipal,
+                            interest_rate: newAnnualRate,
+                            start_time: day,
+                            end_day: projectedEndDay,
+                            next_payment_day: day + (365 / 12),
+                            total_payments: totalPayments,
+                            payments_made: 0
+                        };
+                    }
+                    break;
+                }
             }
         }
     }
 
     if (event._mortgage_state && day >= event._mortgage_state.start_time && day <= event._mortgage_state.end_day) {
-        const daysPerMonth = 30;
-        if ((day - event._mortgage_state.start_time) % daysPerMonth == 0 && event._mortgage_state.remaining_principal > 0) {
-            const monthlyPayment = event._mortgage_state.monthly_payment;
-            const monthlyInterest = event._mortgage_state.remaining_principal * (event._mortgage_state.interest_rate / 12);
-            const principalPaid = Math.min(event._mortgage_state.remaining_principal, Math.max(0, monthlyPayment - monthlyInterest));
-            const actualPayment = monthlyInterest + principalPaid;
+        const state = event._mortgage_state;
+        const outstandingDebt = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+        state.remaining_principal = outstandingDebt;
+
+        const canMakePayment =
+            outstandingDebt > 0 &&
+            (state.total_payments == null || state.payments_made < state.total_payments) &&
+            day + 1e-9 >= (state.next_payment_day ?? (state.start_time + (365 / 12)));
+
+        if (canMakePayment) {
+            const monthlyPayment = state.monthly_payment;
+            const actualPayment = Math.min(monthlyPayment, outstandingDebt);
 
             if (isEnabled('mortgage_payment')) {
                 envelopes[params.from_key].balance -= actualPayment;
-                event._mortgage_state.remaining_principal = Math.max(0, event._mortgage_state.remaining_principal - principalPaid);
                 if (isEnabled('morgage_loan')) {
-                    envelopes[params.mortgage_envelope].balance += principalPaid;
+                    envelopes[params.mortgage_envelope].balance += actualPayment;
+                    state.remaining_principal = Math.max(0, -envelopes[params.mortgage_envelope].balance);
                 }
             }
 
@@ -709,9 +902,24 @@ const buy_house = (day: number, event: any, envelopes: Record<string, any>) => {
                 envelopes[params.from_key].balance -= tax;
             }
 
-            if (isEnabled('final_home_payment_correction') && event._mortgage_state.remaining_principal <= 0) {
+            if (isEnabled('final_home_payment_correction') && state.remaining_principal <= 0) {
                 if (isEnabled('morgage_loan')) {
                     envelopes[params.mortgage_envelope].balance = 0;
+                }
+            }
+
+            state.payments_made = (state.payments_made ?? 0) + 1;
+            state.next_payment_day = (state.next_payment_day ?? (state.start_time + (365 / 12))) + (365 / 12);
+
+            const isLastPayment =
+                state.remaining_principal <= 0 ||
+                (state.total_payments != null && state.payments_made >= state.total_payments);
+
+            if (isLastPayment) {
+                state.end_day = day;
+                params.end_time = day;
+                if (onParameterUpdate && typeof event.id === 'number') {
+                    onParameterUpdate({ eventId: event.id, paramType: 'end_time', value: day });
                 }
             }
         }

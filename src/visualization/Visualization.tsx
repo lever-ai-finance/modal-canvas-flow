@@ -525,6 +525,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
 
       // Sort the plan events by start_time before converting dates
       const sortedPlan = sortPlanEvents(plan);
+      let mainPlanAfterUpdates = JSON.parse(JSON.stringify(sortedPlan));
 
       // Convert date parameters to days for simulation
       const convertedPlan = {
@@ -539,10 +540,9 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         startDate,
         endDate,
         (updates) => {
-          // Handle updates for locked plan if needed
+          // Handle parameter updates emitted during simulation
           if (updates.length > 0) {
-            // Deep clone locked plan before applying updates to avoid mutating shared references
-            const updatedPlan = JSON.parse(JSON.stringify(plan));
+            const updatedPlan = JSON.parse(JSON.stringify(mainPlanAfterUpdates));
             updates.forEach(update => {
               const event = updatedPlan.events.find((e: { id: number }) => e.id === update.eventId);
               if (event) {
@@ -561,6 +561,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                 }
               }
             });
+            mainPlanAfterUpdates = updatedPlan;
             updatePlanDirectly(updatedPlan);
           }
         },
@@ -576,11 +577,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
       // Store the simulation data
       setAllNetWorthData(simulationResult);
 
-      // Update the plan with sorted events to maintain sorted state
-      if (sortedPlan !== plan) {
-        updatePlanDirectly(sortedPlan);
-      }
-
       // Extract current day balances from simulation results with enhanced data
       let currentDayBalances: Record<string, {
         value: number;
@@ -589,7 +585,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         color: { area: string; line: string };
         isNonNetworth?: boolean;
       }> = {};
-      const currentDayResult = allNetWorthData.find(result => result.date === currentDay);
+      const currentDayResult = simulationResult.find(result => result.date === currentDay);
       if (currentDayResult) {
         // Process networth parts
         Object.entries(currentDayResult.parts).forEach(([envelopeName, value]) => {
@@ -627,7 +623,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
       // Store simulation results in the plan
       // Store simulation results while preserving the original plan structure
       const updatedPlanWithResults = {
-        ...plan, // Use original plan to preserve events
+        ...mainPlanAfterUpdates,
         simulation_results: simulationResult,
         current_balances: currentDayBalances
       };
@@ -638,6 +634,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         try {
           // Sort the locked plan events by start_time before converting dates
           const sortedPlanLocked = sortPlanEvents(plan_locked);
+          let lockedPlanAfterUpdates = JSON.parse(JSON.stringify(sortedPlanLocked));
 
           // Convert date parameters to days for locked plan simulation
           const convertedPlanLocked = {
@@ -651,10 +648,9 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
             startDate,
             endDate,
             (updates) => {
-              // Handle updates for locked plan if needed
+              // Handle parameter updates emitted during locked-plan simulation
               if (updates.length > 0) {
-                // Deep clone locked plan before applying updates to avoid mutating shared references
-                const updatedPlan = JSON.parse(JSON.stringify(plan_locked));
+                const updatedPlan = JSON.parse(JSON.stringify(lockedPlanAfterUpdates));
                 updates.forEach(update => {
                   const event = updatedPlan.events.find((e: { id: number }) => e.id === update.eventId);
                   if (event) {
@@ -673,6 +669,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                     }
                   }
                 });
+                lockedPlanAfterUpdates = updatedPlan;
                 updateLockedPlanDirectly(updatedPlan);
               }
             },
@@ -682,7 +679,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
 
           // Store simulation results in the locked plan
           const updatedLockedPlanWithResults = {
-            ...sortedPlanLocked, // Use sorted locked plan to preserve sorted events
+            ...lockedPlanAfterUpdates,
             simulation_results_locked: lockedResult
           };
           updateLockedPlanDirectly(updatedLockedPlanWithResults);
@@ -1340,7 +1337,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                   gap: 8,
                 }}
               >
-                {isOnboardingAtOrAbove('user_info') && (
+                {/* {isOnboardingAtOrAbove('user_info') && (
                   <button
                     style={{
                       background: 'rgba(51, 89, 102, 0.06)',
@@ -1361,7 +1358,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                   >
                     1m
                   </button>
-                )}
+                )} */}
                 {isOnboardingAtOrAbove('user_info') && (
                   <button
                     style={{
@@ -1384,7 +1381,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                     3m
                   </button>
                 )}
-                {isOnboardingAtOrAbove('updating_events') && (
+                {/* {isOnboardingAtOrAbove('updating_events') && (
                   <button
                     style={{
                       background: 'rgba(51, 89, 102, 0.06)',
@@ -1405,7 +1402,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                   >
                     1yr
                   </button>
-                )}
+                )} */}
                 {isOnboardingAtOrAbove('updating_events') && (
                   <button
                     style={{
