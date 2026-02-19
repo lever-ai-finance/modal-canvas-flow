@@ -36,7 +36,7 @@ export const getIntervalInDays = (interval: TimeInterval): number => {
         case 'day':
             return 1;
         case 'half_week':
-            return 3.5;
+            return 3; // Round to whole number 
         case 'week':
             return 7;
         case 'month':

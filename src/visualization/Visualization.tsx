@@ -496,7 +496,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
   ) => {
     const intervalToUse = intervalOverride || timeInterval;
     const intervalDays = getIntervalInDays(intervalToUse);
-    console.log('🔍 Sampling data', { interval: intervalToUse, intervalDays });
+    //console.log('🔍 Sampling data', { interval: intervalToUse, intervalDays });
 
     // Sample the full life range at the specified interval
     const timePoints = computeTimePoints(startDate, endDate, intervalDays, undefined, currentDay);

@@ -3,6 +3,7 @@ import { supabase } from '../integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import type { Plan as PlanContextPlan } from './PlanContext';
+import { set } from 'date-fns';
 
 // Onboarding state also used for access states
 const ONBOARDING_STATES = [
@@ -233,7 +234,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Load onboarding state on initialization
     useEffect(() => {
         const loadOnboardingState = async () => {
-            return;
+            setIsLoading(false);
+            return; // Ignore onboarding state for now
             //console.log('🚀 INITIALIZING ONBOARDING STATE FROM DB...');
             try {
                 // This will create anon_key if it doesn't exist

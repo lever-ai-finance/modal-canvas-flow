@@ -27,8 +27,8 @@ const ExitViewingModeDialog: React.FC<ExitViewingModeDialogProps> = ({
         // Commented out for future implementation
         // onConfirm();
 
-        // Open UX testing calendar in new tab
-        window.open('https://cal.com/lever-ai/financial-planner-ux-tester', '_blank');
+        // Open the financial timeline in a new tab
+        window.open('https://app.lever-ai.com', '_blank');
     };
 
     return (
