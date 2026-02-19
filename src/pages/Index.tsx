@@ -68,7 +68,7 @@ export default function Index() {
   const [errorMessage, setErrorMessage] = useState('');
   const [addEnvelopeModalOpen, setAddEnvelopeModalOpen] = useState(false);
   const [envelopeManagerModalOpen, setEnvelopeManagerModalOpen] = useState(false);
-  const [onboardingOpen, setOnboardingOpen] = useState(true);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
@@ -110,11 +110,11 @@ export default function Index() {
   // Modify onboarding state to respect example viewing mode
   const showPostSignInModals = useCallback(() => {
     if (!localStorage.getItem('has-seen-subscription-modal')) {
-      setUserAccountModalOpen(true);
+      //setUserAccountModalOpen(true);
       setSubscriptionModalOpen(true);
       localStorage.setItem('has-seen-subscription-modal', 'true');
     } else {
-      setUserAccountModalOpen(true);
+      //setUserAccountModalOpen(true);
     }
   }, []);
 
@@ -134,16 +134,25 @@ export default function Index() {
   useEffect(() => {
     if (isExampleViewing) {
       setOnboardingOpen(false);
+      setAuthModalOpen(false);
       return;
     }
+
+    if (isLoading) return;
 
     const onboardingDone = localStorage.getItem('onboarding-modal-done');
     if (onboardingDone === 'true') {
       setOnboardingOpen(false);
+      if (!user) {
+        setAuthModalMode('signIn');
+        setAuthModalOpen(true);
+      } else {
+        setAuthModalOpen(false);
+      }
     } else {
       setOnboardingOpen(true);
     }
-  }, [isExampleViewing]);
+  }, [isExampleViewing, isLoading, user]);
 
   // Check for Stripe return on app startup
   useEffect(() => {
@@ -280,7 +289,7 @@ export default function Index() {
 
   const handleAccount = () => {
     if (user) {
-      showPostSignInModals();
+      setUserAccountModalOpen(true);
     } else {
       setAuthModalOpen(true);
     }

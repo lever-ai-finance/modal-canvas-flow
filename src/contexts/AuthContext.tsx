@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -79,6 +79,8 @@ interface AuthContextType {
     upsertAnonymousPlan: (planName: string, planData: any, planImage?: string) => Promise<boolean>;
     logAnonymousButtonClick: (buttonId: string) => Promise<boolean>;
     fetchDefaultPlans: () => Promise<{ plan_name: string | null; plan_data: any; plan_image: string | null }[]>;
+    getMostRecentSavedPlan: () => DatabaseRowPlan | null;
+    claimAnonymousPlansToUser: (userId?: string) => Promise<number>;
     getOnboardingStateNumber: (state: OnboardingState) => number;
     getOnboardingStateFromNumber: (number: number) => OnboardingState | null;
     updateOnboardingState: (newState: OnboardingState, persist?: boolean) => Promise<void>;
@@ -112,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [onboarding_state, setOnboardingState] = useState<OnboardingState>('full');
+    const claimedAnonymousPlansUserRef = useRef<string | null>(null);
 
     // Helper function to check if current onboarding state is at or above required level
     const isOnboardingAtOrAbove = (requiredState: OnboardingState) => {
@@ -231,6 +234,112 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const claimAnonymousPlansToUser = useCallback(async (userIdArg?: string): Promise<number> => {
+        // Claims the anonymous plans claimed by this browser to the users account
+        const targetUserId = userIdArg || user?.id;
+        if (!targetUserId) return 0;
+
+        if (claimedAnonymousPlansUserRef.current === targetUserId) {
+            return 0;
+        }
+
+        const anonId = getOrCreateAnonId();
+
+        try {
+            const { data: anonymousPlans, error: anonPlansError } = await supabase
+                .from('anonymous_plans')
+                .select('*')
+                .eq('anonymous_user_id', anonId)
+                .order('updated_at', { ascending: false });
+
+            if (anonPlansError) {
+                console.error('Error fetching anonymous plans for claim:', anonPlansError);
+                return 0;
+            }
+
+            if (!anonymousPlans || anonymousPlans.length === 0) {
+                claimedAnonymousPlansUserRef.current = targetUserId;
+                return 0;
+            }
+
+            const { data: userPlans, error: userPlansError } = await supabase
+                .from('plans')
+                .select('plan_name')
+                .eq('user_id', targetUserId);
+
+            if (userPlansError) {
+                console.error('Error fetching existing user plans for claim:', userPlansError);
+                return 0;
+            }
+
+            const existingNames = new Set((userPlans || []).map((plan) => (plan.plan_name || '').trim()).filter(Boolean));
+
+            let importedCount = 0;
+            const importedAnonymousPlanIds: string[] = [];
+            for (const anonymousPlan of anonymousPlans) {
+                if (!anonymousPlan.plan_data) continue;
+
+                let baseName = (anonymousPlan.plan_name || '').trim();
+                if (!baseName) {
+                    baseName = 'Onboarding Plan';
+                }
+
+                let resolvedName = baseName;
+                let suffix = 2;
+                while (existingNames.has(resolvedName)) {
+                    resolvedName = `${baseName} (${suffix})`;
+                    suffix += 1;
+                }
+
+                const { error: insertError } = await supabase
+                    .from('plans')
+                    .insert({
+                        user_id: targetUserId,
+                        plan_name: resolvedName,
+                        plan_data: anonymousPlan.plan_data,
+                        plan_image: anonymousPlan.plan_image || null,
+                    });
+
+                if (insertError) {
+                    console.error('Error importing anonymous plan:', insertError);
+                    continue;
+                }
+
+                existingNames.add(resolvedName);
+                importedCount += 1;
+                importedAnonymousPlanIds.push(anonymousPlan.id);
+            }
+
+            if (importedAnonymousPlanIds.length > 0) {
+                const { error: deleteError } = await supabase
+                    .from('anonymous_plans')
+                    .delete()
+                    .in('id', importedAnonymousPlanIds)
+                    .eq('anonymous_user_id', anonId);
+
+                if (deleteError) {
+                    console.error('Error deleting migrated anonymous plans:', deleteError);
+                }
+            }
+
+            await supabase
+                .from('anonymous_users')
+                .update({ converted_user: targetUserId })
+                .eq('id', anonId);
+
+            claimedAnonymousPlansUserRef.current = targetUserId;
+
+            if (importedCount > 0) {
+                toast.success(importedCount === 1 ? 'Imported your onboarding plan.' : `Imported ${importedCount} onboarding plans.`);
+            }
+
+            return importedCount;
+        } catch (error) {
+            console.error('Error claiming anonymous plans:', error);
+            return 0;
+        }
+    }, [user?.id]);
+
     // Load onboarding state on initialization
     useEffect(() => {
         const loadOnboardingState = async () => {
@@ -284,9 +393,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (session?.user) {
                     setTimeout(async () => {
                         //console.log('🔄 Fetching user data for:', session.user.id);
+                        await claimAnonymousPlansToUser(session.user.id);
                         await fetchUserData(session.user.id);
                     }, 0);
                 } else {
+                    claimedAnonymousPlansUserRef.current = null;
                     setUserData(null);
                 }
             }
@@ -297,7 +408,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(session?.user ?? null);
             if (session?.user) {
                 //console.log('🔄 Fetching2 user data for:', session.user.id);
-                fetchUserData(session.user.id);
+                claimAnonymousPlansToUser(session.user.id).then(() => {
+                    fetchUserData(session.user.id);
+                });
             }
         });
 
@@ -325,6 +438,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('✅ Sign in successful:', data.user?.email);
         // After successful sign-in, fetch user data (and create profile if needed)
         if (data.user && data.user.id) {
+            await claimAnonymousPlansToUser(data.user.id);
             await fetchUserData(data.user.id);
         }
         return data;
@@ -716,7 +830,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Upsert a plan for the anonymous user
     const upsertAnonymousPlan = async (planName: string, planData: any, planImage?: string) => {
-        return true; // dont upsert plan for now.
         const anonId = getOrCreateAnonId();
         const { error } = await supabase
             .from('anonymous_plans')
@@ -782,6 +895,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return data || [];
     };
 
+    const getMostRecentSavedPlan = useCallback((): DatabaseRowPlan | null => {
+        if (!user || !userData?.plans || userData.plans.length === 0) {
+            return null;
+        }
+
+        return userData.plans.reduce<DatabaseRowPlan | null>((mostRecent, plan) => {
+            if (!mostRecent) return plan;
+
+            const mostRecentTime = new Date(mostRecent.updated_at || mostRecent.created_at).getTime();
+            const candidateTime = new Date(plan.updated_at || plan.created_at).getTime();
+
+            return candidateTime > mostRecentTime ? plan : mostRecent;
+        }, null);
+    }, [user, userData]);
+
     const value = {
         user,
         userData,
@@ -802,6 +930,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         upsertAnonymousPlan,
         logAnonymousButtonClick,
         fetchDefaultPlans,
+        getMostRecentSavedPlan,
+        claimAnonymousPlansToUser,
         getOnboardingStateNumber,
         getOnboardingStateFromNumber,
         updateOnboardingState,

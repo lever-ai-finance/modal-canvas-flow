@@ -398,7 +398,7 @@ interface PlanContextType {
 
 // --- AUTO-PERSISTENCE FLAG ---
 // Set this to true to enable automatic saving/loading of the plan to/from localStorage
-const ENABLE_AUTO_PERSIST_PLAN = true;
+const ENABLE_AUTO_PERSIST_PLAN = false;
 const LOCALSTORAGE_PLAN_KEY = 'user_plan_v1';
 const LOCALSTORAGE_PLAN_LOCKED_KEY = 'user_plan_locked_v1';
 
@@ -493,8 +493,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
     const [historyIndex, setHistoryIndex] = useState(-1);
     const MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
 
-    // Get auth context for onboarding state management
-    const { updateOnboardingState } = useAuth();
+    // Get auth context for onboarding state management, persistence, and saved plans
+    const { updateOnboardingState, upsertAnonymousPlan, fetchDefaultPlans, getMostRecentSavedPlan, user, userData } = useAuth();
 
     // Ref to store the setZoomToDateRange function from Visualization
     const setZoomToDateRangeRef = useRef<((startDay: number, endDay: number) => void) | null>(null);
@@ -508,7 +508,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
     // Ref to store the handleZoomToWindow function from Visualization
     const handleZoomToWindowRef = useRef<((options: { years?: number; months?: number; days?: number }) => void) | null>(null);
 
-    const { upsertAnonymousPlan, fetchDefaultPlans } = useAuth();
+    // Ref to ensure we only auto-load most recent saved plan once per signed-in user
+    const lastLoadedUserPlanRef = useRef<string | null>(null);
 
     // Add to history stack function
     const addToStack = useCallback((planData: Plan) => {
@@ -629,6 +630,12 @@ export function PlanProvider({ children }: PlanProviderProps) {
         }
     }, []);
 
+    //Opening Logic:
+    // If in calculator mode, close onboarding, load default plan, (user should be in veiwing mode and seeing default plan first)
+    // else if user is signed in, close onboarding,  (user should see most recent plan)
+    // else if not signed in, display onboarding, load default plan (user should see onboarding)
+    // Upon sign in if they already have a plan then load that plan. (if user went through onboarding they should see their onboarding plan)
+
     // --- Clean startup: check URL parameters, then load from localStorage if available, else load default plan ---
     useEffect(() => {
         if (isInitialized) return; // Prevent double init
@@ -681,15 +688,14 @@ export function PlanProvider({ children }: PlanProviderProps) {
                             lockedPlanFound: !!lockedPlan
                         });
                     }
-                }
-
+                } else {
                 // Continue with normal initialization if no example plan found
                 console.log('➡️ Continuing with normal initialization...');
                 let mainPlan = null;
                 let lockedPlan = null;
 
                 // First try localStorage
-                if (ENABLE_AUTO_PERSIST_PLAN) {
+                if (false) { // Dont pull plan from local storage
                     console.log('📦 Checking localStorage first...');
                     const stored = localStorage.getItem(LOCALSTORAGE_PLAN_KEY);
                     const storedLocked = localStorage.getItem(LOCALSTORAGE_PLAN_LOCKED_KEY);
@@ -714,6 +720,28 @@ export function PlanProvider({ children }: PlanProviderProps) {
                     }
                 }
 
+                // Get most recently saved plan from the database for signed-in users
+                if (user) {
+                    if (!userData) {
+                        console.log('⏳ Signed-in user detected, waiting for user data before initializing plan');
+                        return;
+                    }
+
+                    const mostRecentSavedPlan = getMostRecentSavedPlan();
+                    if (mostRecentSavedPlan?.plan_data) {
+                        console.log('📥 Loading most recent saved plan from user profile:', mostRecentSavedPlan.plan_name);
+                        loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
+                        lastLoadedUserPlanRef.current = user.id;
+                        setIsInitialized(true);
+                        return;
+                    }
+
+                    console.log('ℹ️ Signed-in user has no saved plans, falling back to defaults');
+                }
+                    
+                
+
+
                 // If localStorage didn't work, use defaults
                 console.log('📄 Using default plans as fallback');
                 mainPlan = defaultPlanData;
@@ -723,16 +751,50 @@ export function PlanProvider({ children }: PlanProviderProps) {
                 loadPlanData(mainPlan, lockedPlan);
                 setIsInitialized(true);
 
-            } catch (error) {
+            }
+        }
+        catch (error) {
                 console.error('Loading Default Plans:', error);
                 // Load default plans as fallback
                 loadPlanData(defaultPlanData, defaultLockedPlanData);
                 setIsInitialized(true);
-            }
+        }
         };
 
         tryLoadPlan();
-    }, [isInitialized, fetchDefaultPlans, loadPlanData]);
+    }, [isInitialized, fetchDefaultPlans, getMostRecentSavedPlan, loadPlanData, user, userData]);
+
+    // Load most recent saved plan after sign-in, even after initial app initialization is complete
+    useEffect(() => {
+
+        //Check to see if using Financial-Calculator and if so then dont load plan for signed in user
+        const urlParams = new URLSearchParams(window.location.search);
+        const planId = urlParams.get('plan_id');
+        const isFinancialCalculatorViewing = planId === 'Financial-Calculator';
+
+        if (isFinancialCalculatorViewing) {
+            return;
+        }
+
+        if (!user) {
+            lastLoadedUserPlanRef.current = null;
+            return;
+        }
+
+        if (!isInitialized || !userData) return;
+        if (lastLoadedUserPlanRef.current === user.id) return;
+
+        const mostRecentSavedPlan = getMostRecentSavedPlan();
+        if (!mostRecentSavedPlan?.plan_data) {
+            lastLoadedUserPlanRef.current = user.id;
+            return;
+        }
+
+        console.log('📥 Loading most recent saved plan after sign-in:', mostRecentSavedPlan.plan_name);
+        loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
+
+        lastLoadedUserPlanRef.current = user.id;
+    }, [user, userData, isInitialized, loadPlanData, getMostRecentSavedPlan]);
 
     // Effect to handle simulation triggering after plan updates
     useEffect(() => {

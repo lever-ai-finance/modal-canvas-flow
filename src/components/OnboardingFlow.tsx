@@ -55,7 +55,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     _currentStep: 0,
   });
   const [loading, setLoading] = useState(false);
-  const { upsertAnonymousOnboarding, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
+  const { upsertAnonymousOnboarding, upsertAnonymousPlan, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
   const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon, addEvent} = usePlan();
 
   const [selectedDefaultEnvelope, setSelectedDefaultEnvelope] = useState<string>('');
@@ -234,6 +234,19 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   };
 
   const completeOnboarding = async () => {
+    // save plan to anonymous onboarding data
+    try {
+      if (plan) {
+        const onboardingName = data.name?.trim();
+        const planName = onboardingName
+          ? `${onboardingName} Plan`
+          : ((plan.title && plan.title.trim()) ? plan.title.trim() : 'Onboarding Plan');
+        await upsertAnonymousPlan(planName, plan);
+      }
+    } catch (error) {
+      console.warn('Failed to persist onboarding plan anonymously:', error);
+    }
+
     // When completing the modal, transition from 'user_info' to 'basics' to start progressive access
     if (logAnonymousButtonClick) {
       await logAnonymousButtonClick('modal_completed');
