@@ -665,7 +665,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
                         console.log('📥 Loading example plans...');
                         loadPlanData(regularPlan.plan_data, lockedPlan.plan_data);
                         setIsExampleViewing(true); // Set example viewing mode
-                        localStorage.setItem('onboarding-modal-done', 'true');
                         // When loading an example plan, set anonymous onboarding to full (do not persist)
                         try {
                             await updateOnboardingState('full', false);

@@ -132,13 +132,18 @@ export default function Index() {
 
 
   useEffect(() => {
+    if (isExampleViewing) {
+      setOnboardingOpen(false);
+      return;
+    }
+
     const onboardingDone = localStorage.getItem('onboarding-modal-done');
     if (onboardingDone === 'true') {
       setOnboardingOpen(false);
     } else {
       setOnboardingOpen(true);
     }
-  }, []);
+  }, [isExampleViewing]);
 
   // Check for Stripe return on app startup
   useEffect(() => {
