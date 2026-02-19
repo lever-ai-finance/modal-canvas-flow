@@ -1,7 +1,7 @@
 {
     "inflation_rate": 0.03,
     "adjust_for_inflation": true,
-    "default_envelopes": [
+    "default_accounts": [
         {
             "name": "Cash",
             "category": "Cash",
@@ -375,14 +375,14 @@
             "can_be_reocurring": true,
             "weight": 100,
             "category": "System",
-            "description": "A simple inflow of money into an envelope.",
+            "description": "A simple income into an account.",
             "default_title": "Money Inflow",
             "icon": "arrow-up",
             "event_functions_parts": [
                 {
                     "type": "inflow",
                     "title": "Inflow",
-                    "description": "Move money into the destination envelope",
+                    "description": "Move money into the destination account",
                     "icon": "arrow-up",
                     "default_state": true
                 }
@@ -392,7 +392,7 @@
                     "type": "start_time",
                     "display_name": "Date",
                     "parameter_units": "date",
-                    "description": "When the inflow occurs",
+                    "description": "When the recurring income begins",
                     "default": 0,
                     "editable": true,
                     "advanced_option": false
@@ -401,19 +401,19 @@
                     "type": "end_time",
                     "display_name": "End Date",
                     "parameter_units": "date",
-                    "description": "When the recurring inflow ends ",
+                    "description": "When the recurring income ends ",
                     "default": 3650,
                     "editable": true,
-                    "advanced_option": true
+                    "advanced_option": false
                 },
                 {
                     "type": "frequency_days",
                     "display_name": "Frequency (Days)",
                     "parameter_units": "days",
-                    "description": "Number of days between each inflow ",
+                    "description": "Number of days between each income ",
                     "default": 30,
                     "editable": true,
-                    "advanced_option": true
+                    "advanced_option": false
                 },
                 {
                     "type": "amount",
@@ -426,38 +426,38 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where the money is deposited",
+                    "description": "Account where the money is deposited",
                     "default": "Other (Cash)",
                     "editable": true,
                     "advanced_option": false
                 },
                 {
                     "type": "final_recurring_inflow",
-                    "display_name": "Final Recurring Inflow",
+                    "display_name": "Final Recurring Income",
                     "parameter_units": "date",
-                    "description": "When the final recurring inflow occurs",
+                    "description": "When the final recurring income occurs",
                     "default": 3650,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
                     "type": "number_of_recurring_inflows",
-                    "display_name": "Number of Recurring Inflows",
+                    "display_name": "Number of Recurring Incomes",
                     "parameter_units": "quantity",
-                    "description": "Number of times the recurring inflow occurs",
+                    "description": "Number of times the recurring income occurs",
                     "default": 12,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
                     "type": "total_inflow",
-                    "display_name": "Total Inflow",
+                    "display_name": "Total Income",
                     "parameter_units": "usd",
                     "description": "Total amount of money received",
                     "default": 0,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 }
             ],
@@ -599,14 +599,14 @@
             "can_be_reocurring": true,
             "weight": 100,
             "category": "System",
-            "description": "A simple outflow of money from an envelope.",
+            "description": "A simple outflow of money from an account.",
             "default_title": "Money Outflow",
             "icon": "arrow-down",
             "event_functions_parts": [
                 {
                     "type": "outflow",
-                    "title": "Outflow",
-                    "description": "Take money from the source envelope",
+                    "title": "Expense",
+                    "description": "Take money from the source account",
                     "icon": "arrow-down",
                     "default_state": true
                 }
@@ -616,7 +616,7 @@
                     "type": "start_time",
                     "display_name": "Date",
                     "parameter_units": "date",
-                    "description": "When the outflow occurs",
+                    "description": "When the expense occurs",
                     "default": 0,
                     "editable": true,
 "advanced_option": false
@@ -625,7 +625,7 @@
                     "type": "end_time",
                     "display_name": "End Date",
                     "parameter_units": "date",
-                    "description": "When the recurring outflow ends ",
+                    "description": "When the recurring expenses ends ",
                     "default": 3650,
                     "editable": true,
 "advanced_option": false
@@ -634,7 +634,7 @@
                     "type": "frequency_days",
                     "display_name": "Frequency (Days)",
                     "parameter_units": "days",
-                    "description": "Number of days between each outflow ",
+                    "description": "Number of days between each expense ",
                     "default": 30,
                     "editable": true,
 "advanced_option": false
@@ -650,38 +650,38 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope from which the money is withdrawn",
+                    "description": "Account from which the money is withdrawn",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "final_recurring_outflow",
-                    "display_name": "Final Recurring Outflow",
+                    "display_name": "Final Recurring Expense",
                     "parameter_units": "date",
-                    "description": "When the final recurring outflow occurs",
+                    "description": "When the final recurring expense occurs",
                     "default": 3650,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
                     "type": "number_of_recurring_outflows",
-                    "display_name": "Number of Recurring Outflows",
+                    "display_name": "Number of Recurring Expenses",
                     "parameter_units": "quantity",
-                    "description": "Number of times the recurring outflow occurs",
+                    "description": "Number of times the recurring expense occurs",
                     "default": 12,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
                     "type": "total_outflow",
-                    "display_name": "Total Outflow",
+                    "display_name": "Total Expense",
                     "parameter_units": "usd",
                     "description": "Total amount of money spent",
                     "default": 0,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 }
             ],
@@ -695,13 +695,13 @@
                     "weight": 80,
                     "can_be_reocurring": true,
                     "icon": "arrow-down",
-                    "description": "Update the amount of the recurring outflow.",
+                    "description": "Update the amount of the recurring expense.",
                     "parameters": [
                         {
                             "type": "start_time",
                             "display_name": "Start Date",
                             "parameter_units": "date",
-                            "description": "When the recurring outflow begins",
+                            "description": "When the recurring expense begins",
                             "default": 0,
                             "editable": true,
 "advanced_option": false
@@ -728,10 +728,10 @@
             "can_be_reocurring": false,
             "weight": 100,
             "category": "System",
-            "description": "Declare the initial balances of up to five financial accounts (envelopes) at a specific time.",
+            "description": "Declare the initial balances of up to five financial accounts at a specific time.",
             "default_title": "Initial Account Balances",
             "icon": "list",
-            "disclaimer": "This event is used to set the starting balances for up to five envelopes. Use this on todays date to set the account balance for your envelopes.",
+            "disclaimer": "This event is used to set the starting balances for up to five accounts. Use this on todays date to set the account balance for your accounts.",
             "event_functions_parts": [
                 {
                     "type": "alter_account_balance",
@@ -755,16 +755,16 @@
                     "type": "amount1",
                     "display_name": "Amount 1",
                     "parameter_units": "usd",
-                    "description": "Initial balance for Envelope 1.",
+                    "description": "Initial balance for Account 1.",
                     "default": 0,
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "envelope1",
-                    "display_name": "Envelope 1",
+                    "type": "account1",
+                    "display_name": "Account 1",
                     "parameter_units": "envelope",
-                    "description": "First envelope/account name.",
+                    "description": "First account name.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -773,16 +773,16 @@
                     "type": "amount2",
                     "display_name": "Amount 2",
                     "parameter_units": "usd",
-                    "description": "Initial balance for Envelope 2.",
+                    "description": "Initial balance for Account 2.",
                     "default": 0,
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "envelope2",
-                    "display_name": "Envelope 2",
+                    "type": "account2",
+                    "display_name": "Account 2",
                     "parameter_units": "envelope",
-                    "description": "Second envelope/account name.",
+                    "description": "Second account name.",
                     "default": "Other (Savings)",
                     "editable": true,
 "advanced_option": false
@@ -791,16 +791,16 @@
                     "type": "amount3",
                     "display_name": "Amount 3",
                     "parameter_units": "usd",
-                    "description": "Initial balance for Envelope 3.",
+                    "description": "Initial balance for Account 3.",
                     "default": 0,
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "envelope3",
-                    "display_name": "Envelope 3",
+                    "type": "account3",
+                    "display_name": "Account 3",
                     "parameter_units": "envelope",
-                    "description": "Third envelope/account name.",
+                    "description": "Third account name.",
                     "default": "Other (Investments)",
                     "editable": true,
 "advanced_option": false
@@ -809,16 +809,16 @@
                     "type": "amount4",
                     "display_name": "Amount 4",
                     "parameter_units": "usd",
-                    "description": "Initial balance for Envelope 4.",
+                    "description": "Initial balance for Account 4.",
                     "default": 0,
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "envelope4",
-                    "display_name": "Envelope 4",
+                    "type": "account4",
+                    "display_name": "Account 4",
                     "parameter_units": "envelope",
-                    "description": "Fourth envelope/account name.",
+                    "description": "Fourth account name.",
                     "default": "Other (Retirement)",
                     "editable": true,
 "advanced_option": false
@@ -827,16 +827,16 @@
                     "type": "amount5",
                     "display_name": "Amount 5",
                     "parameter_units": "usd",
-                    "description": "Initial balance for Envelope 5.",
+                    "description": "Initial balance for Account 5.",
                     "default": 0,
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "envelope5",
-                    "display_name": "Envelope 5",
+                    "type": "account5",
+                    "display_name": "Account 5",
                     "parameter_units": "envelope",
-                    "description": "Fifth envelope/account name.",
+                    "description": "Fifth account name.",
                     "default": "Other (Debt)",
                     "editable": true,
 "advanced_option": false
@@ -852,22 +852,22 @@
             "can_be_reocurring": true,
             "weight": 100,
             "category": "System",
-            "description": "Transfer money between envelopes with optional growth rate for destination.",
+            "description": "Transfer money between accounts with optional growth rate for destination.",
             "default_title": "Money Transfer",
             "icon": "arrow-right-arrow-left",
-            "disclaimer": "This event transfers a specified amount between envelopes. It does not simulate transfer fees, delays, or currency conversion.",
+            "disclaimer": "This event transfers a specified amount between accounts. It does not simulate transfer fees, delays, or currency conversion.",
             "event_functions_parts": [
                 {
                     "type": "inflow",
                     "title": "Inflow",
-                    "description": "Move money into the destination envelope",
+                    "description": "Move money into the destination account",
                     "icon": "arrow-up",
                     "default_state": true
                 },
                 {
                     "type": "outflow",
                     "title": "Outflow",
-                    "description": "Take money from the source envelope",
+                    "description": "Take money from the source account",
                     "icon": "arrow-down",
                     "default_state": true
                 }
@@ -911,18 +911,18 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Source envelope for the transfer",
+                    "description": "Source account for the transfer",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Destination envelope for the transfer",
+                    "description": "Destination account for the transfer",
                     "default": "Other (Investments)",
                     "editable": true,
 "advanced_option": false
@@ -1004,7 +1004,7 @@
                 {
                     "type": "inflow",
                     "title": "Inflow",
-                    "description": "Move money into the destination envelope",
+                    "description": "Move money into the destination account",
                     "icon": "arrow-up",
                     "default_state": true
                 }
@@ -1048,9 +1048,9 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where income is deposited.",
+                    "description": "Account where income is deposited.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -1116,9 +1116,9 @@
             "can_be_reocurring": false,
             "weight": 85,
             "category": "System",
-            "description": "Manually adjust the value of an envelope for tracking accuracy.",
+            "description": "Manually adjust the value of an account for tracking accuracy.",
             "icon": "edit",
-            "disclaimer": "This event allows manual adjustment of an envelope's value. This is used to correct an account to a specific amount.",
+            "disclaimer": "This event allows manual adjustment of an account's value. This is used to correct an account to a specific amount.",
             "event_functions_parts": [
                 {
                     "type": "alter_account_balance",
@@ -1149,9 +1149,9 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "Target Envelope",
+                    "display_name": "Target Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope to be adjusted.",
+                    "description": "Account to be adjusted.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -1180,14 +1180,14 @@
                 {
                     "type": "debt_payments",
                     "title": "Debt Payments",
-                    "description": "Simulate reocurring debt payments out of the From Envelope on an amoratization schedule",
+                    "description": "Simulate reocurring debt payments out of the From Account on an amoratization schedule",
                     "icon": "credit-card",
                     "default_state": true
                 },
                 {
                     "type": "deposit_debt",
                     "title": "Deposit Debt",
-                    "description": "Simulate the loan being deposited into the From Envelope",
+                    "description": "Simulate the loan being deposited into the From Account",
                     "icon": "credit-card",
                     "default_state": true
                 },
@@ -1238,7 +1238,7 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
                     "description": "The loan that you are paying off",
                     "default": "Other (Cash)",
@@ -1247,7 +1247,7 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
                     "description": "From what account are you paying it from",
                     "default": "Other (Debt)",
@@ -1278,14 +1278,14 @@
                 {
                     "type": "debt_payments",
                     "title": "Debt Payments",
-                    "description": "Simulate reocurring debt payments out of the From Envelope on an amoratization schedule",
+                    "description": "Simulate reocurring debt payments out of the From Account on an amoratization schedule",
                     "icon": "credit-card",
                     "default_state": true
                 },
                 {
                     "type": "deposit_debt",
                     "title": "Deposit Debt",
-                    "description": "Simulate the loan being deposited into the From Envelope",
+                    "description": "Simulate the loan being deposited into the From Account",
                     "icon": "credit-card",
                     "default_state": true
                 },
@@ -1354,18 +1354,18 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where the loan is deposited",
+                    "description": "Account where the loan is deposited",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Debt Envelope for tracking debt",
+                    "description": "Debt Account for tracking debt",
                     "default": "Other (Debt)",
                     "editable": true,
 "advanced_option": false
@@ -1396,14 +1396,14 @@
                 {
                     "type": "debt_payments",
                     "title": "Debt Payments",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "credit-card",
                     "default_state": true
                 },
                 {
                     "type": "deposit_debt",
                     "title": "Deposit Debt",
-                    "description": "Simulate the loan being deposited into the Envelope",
+                    "description": "Simulate the loan being deposited into the Account",
                     "icon": "credit-card",
                     "default_state": true
                 },
@@ -1463,18 +1463,18 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where the loan is deposited",
+                    "description": "Account where the loan is deposited",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Debt Envelope for tracking debt",
+                    "description": "Debt Account for tracking debt",
                     "default": "Other (Debt)",
                     "editable": true,
 "advanced_option": false
@@ -1493,12 +1493,12 @@
             "description": "Basic purchase or spending of money",
             "default_title": "Purchase",
             "icon": "shopping-cart",
-            "disclaimer": "This event records a one-time purchase or expense from a selected envelope. It does not account for recurring costs, taxes, or the impact on other envelopes.",
+            "disclaimer": "This event records a one-time purchase or expense from a selected account. It does not account for recurring costs, taxes, or the impact on other accounts.",
             "event_functions_parts": [
                 {
                     "type": "outflow",
                     "title": "Outflow",
-                    "description": "Take money from the source envelope",
+                    "description": "Take money from the source account",
                     "icon": "arrow-down",
                     "default_state": true
                 }
@@ -1542,9 +1542,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Which envelope the money comes from",
+                    "description": "Which account the money comes from",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -1563,12 +1563,12 @@
             "description": " gift of money from something",
             "default_title": "Gift",
             "icon": "gift",
-            "disclaimer": "This event adds a one-time monetary gift to a chosen envelope. It does not simulate taxes, recurring gifts, or non-cash gifts.",
+            "disclaimer": "This event adds a one-time monetary gift to a chosen account. It does not simulate taxes, recurring gifts, or non-cash gifts.",
             "event_functions_parts": [
                 {
                     "type": "inflow",
                     "title": "Inflow",
-                    "description": "Move money into the destination envelope",
+                    "description": "Move money into the destination account",
                     "icon": "arrow-up",
                     "default_state": true
                 }
@@ -1612,9 +1612,9 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Which envelope the money goes to",
+                    "description": "Which account the money goes to",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -1643,70 +1643,70 @@
                 {
                     "type": "outflow_groceries",
                     "title": "Outflow Groceries",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_utilities",
                     "title": "Outflow Utilities",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_rent",
                     "title": "Outflow Rent",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_transportation",
                     "title": "Outflow Transportation",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_insurance",
                     "title": "Outflow Insurance",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_healthcare",
                     "title": "Outflow Healthcare",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_dining_out",
                     "title": "Outflow Dining Out",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_entertainment",
                     "title": "Outflow Entertainment",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_personal_care",
                     "title": "Outflow Personal Care",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 },
                 {
                     "type": "outflow_miscellaneous",
                     "title": "Outflow Miscellaneous",
-                    "description": "Simulate reocurring transfer of money out of the Envelope",
+                    "description": "Simulate reocurring transfer of money out of the Account",
                     "icon": "arrow-down",
                     "default_state": true
                 }
@@ -1741,9 +1741,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope from which funds are spent.",
+                    "description": "Account from which funds are spent.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -2039,27 +2039,27 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "Deposit Envelope",
+                    "display_name": "Deposit Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where salary is deposited",
+                    "description": "Account where salary is deposited",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "p_401k_key",
-                    "display_name": "401k Envelope",
+                    "display_name": "401k Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401k contributions are tracked",
+                    "description": "Account where 401k contributions are tracked",
                     "default": "Other (Retirement)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "taxable_income_key",
-                    "display_name": "Taxable Income Envelope",
+                    "display_name": "Taxable Income Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where taxable income is tracked",
+                    "description": "Account where taxable income is tracked",
                     "default": "Taxable Income",
                     "editable": true,
 "advanced_option": true,
@@ -2067,9 +2067,9 @@
                 },
                 {
                     "type": "federal_withholdings_key",
-                    "display_name": "Federal Withholdings Envelope",
+                    "display_name": "Federal Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where federal withholdings are tracked",
+                    "description": "Account where federal withholdings are tracked",
                     "default": "Federal Withholdings",
                     "editable": true,
 "advanced_option": true,
@@ -2077,9 +2077,9 @@
                 },
                 {
                     "type": "state_withholdings_key",
-                    "display_name": "State Withholdings Envelope",
+                    "display_name": "State Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where state withholdings are tracked",
+                    "description": "Account where state withholdings are tracked",
                     "default": "State Withholdings",
                     "editable": true,
 "advanced_option": true,
@@ -2087,9 +2087,9 @@
                 },
                 {
                     "type": "local_withholdings_key",
-                    "display_name": "Local Withholdings Envelope",
+                    "display_name": "Local Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where local withholdings are tracked",
+                    "description": "Account where local withholdings are tracked",
                     "default": "Local Withholdings",
                     "editable": true,
 "advanced_option": true,
@@ -2389,27 +2389,27 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "Deposit Envelope",
+                    "display_name": "Deposit Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where wages are deposited",
+                    "description": "Account where wages are deposited",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "p_401k_key",
-                    "display_name": "401k Envelope",
+                    "display_name": "401k Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401k contributions are tracked",
+                    "description": "Account where 401k contributions are tracked",
                     "default": "Other (Retirement)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "taxable_income_key",
-                    "display_name": "Taxable Income Envelope",
+                    "display_name": "Taxable Income Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where taxable income is tracked",
+                    "description": "Account where taxable income is tracked",
                     "default": "Taxable Income",
                     "editable": true,
 "advanced_option": false,
@@ -2417,9 +2417,9 @@
                 },
                 {
                     "type": "federal_withholdings_key",
-                    "display_name": "Federal Withholdings Envelope",
+                    "display_name": "Federal Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where federal withholdings are tracked",
+                    "description": "Account where federal withholdings are tracked",
                     "default": "Federal Withholdings",
                     "editable": true,
 "advanced_option": false,
@@ -2427,9 +2427,9 @@
                 },
                 {
                     "type": "state_withholdings_key",
-                    "display_name": "State Withholdings Envelope",
+                    "display_name": "State Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where state withholdings are tracked",
+                    "description": "Account where state withholdings are tracked",
                     "default": "State Withholdings",
                     "editable": true,
 "advanced_option": false,
@@ -2437,9 +2437,9 @@
                 },
                 {
                     "type": "local_withholdings_key",
-                    "display_name": "Local Withholdings Envelope",
+                    "display_name": "Local Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where local withholdings are tracked",
+                    "description": "Account where local withholdings are tracked",
                     "default": "Local Withholdings",
                     "editable": true,
 "advanced_option": false,
@@ -2591,18 +2591,18 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Which envelope the money comes from.",
+                    "description": "Which account the money comes from.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where business assets are tracked",
+                    "description": "Account where business assets are tracked",
                     "default": "Other (Investments)",
                     "editable": true,
 "advanced_option": false
@@ -2646,9 +2646,9 @@
                         },
                         {
                             "type": "to_key",
-                            "display_name": "Deposit Envelope",
+                            "display_name": "Deposit Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where business income is deposited",
+                            "description": "Account where business income is deposited",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -2683,9 +2683,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where loss is deducted from",
+                            "description": "Account where loss is deducted from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -2705,7 +2705,7 @@
             "category": "Income & Employment",
             "description": "Transition from employment to retirement with recurring transfers from 401K and ROTH IRA to cash, including taxable income tracking.",
             "icon": "moon",
-            "disclaimer": "This event simulates regular transfers from a 401K and ROTH IRA retirement envelope to cash, with corresponding taxable income tracking. It does not account for complex tax implications or required minimum distributions. This does account for a 25% tax 401K withholding when transfering.",
+            "disclaimer": "This event simulates regular transfers from a 401K and ROTH IRA retirement account to cash, with corresponding taxable income tracking. It does not account for complex tax implications or required minimum distributions. This does account for a 25% tax 401K withholding when transfering.",
             "event_functions_parts": [
                 {
                     "type": "money_transfer",
@@ -2809,18 +2809,18 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where transfers are deposited",
+                    "description": "Account where transfers are deposited",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "p_401k_withdraw_withholding_key",
-                    "display_name": "401K Withdraw Withholding Envelope",
+                    "display_name": "401K Withdraw Withholding Account",
                     "parameter_units": "envelope",
-                    "description": "Tax Envelope where 401K withdrawals are withheld",
+                    "description": "Tax Account where 401K withdrawals are withheld",
                     "default": "401K Withdraw Withholding",
                     "editable": true,
 "advanced_option": false,
@@ -2828,9 +2828,9 @@
                 },
                 {
                     "type": "p_401k_withdraw_key",
-                    "display_name": "401K Withdraw Envelope",
+                    "display_name": "401K Withdraw Account",
                     "parameter_units": "envelope",
-                    "description": "Tax Envelope where 401K withdrawals are deposited",
+                    "description": "Tax Account where 401K withdrawals are deposited",
                     "default": "401K Withdraw",
                     "editable": true,
 "advanced_option": false,
@@ -2838,9 +2838,9 @@
                 },
                 {
                     "type": "roth_ira_withdraw_key",
-                    "display_name": "ROTH IRA Withdraw Envelope",
+                    "display_name": "ROTH IRA Withdraw Account",
                     "parameter_units": "envelope",
-                    "description": "Tax Envelope where ROTH IRA withdrawals are deposited",
+                    "description": "Tax Account where ROTH IRA withdrawals are deposited",
                     "default": "ROTH IRA Withdraw",
                     "editable": true,
 "advanced_option": false,
@@ -2848,9 +2848,9 @@
                 },
                 {
                     "type": "roth_ira_principle_key",
-                    "display_name": "ROTH IRA Principle Envelope",
+                    "display_name": "ROTH IRA Principle Account",
                     "parameter_units": "envelope",
-                    "description": "Tax Envelope where ROTH IRA principle is tracked",
+                    "description": "Tax Account where ROTH IRA principle is tracked",
                     "default": "ROTH IRA Principle",
                     "editable": true,
 "advanced_option": false,
@@ -2957,27 +2957,27 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where downpayment comes from",
+                    "description": "Account where downpayment comes from",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where house value is tracked",
+                    "description": "Account where house value is tracked",
                     "default": "House",
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "mortgage_envelope",
-                    "display_name": "Mortgage Envelope",
+                    "type": "mortgage_account",
+                    "display_name": "Mortgage Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where the home mortgage debt is tracked.",
+                    "description": "Account where the home mortgage debt is tracked.",
                     "default": "Home Mortgage",
                     "editable": true,
 "advanced_option": false
@@ -3056,9 +3056,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where payment comes from",
+                            "description": "Account where payment comes from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3101,9 +3101,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where payment comes from",
+                            "description": "Account where payment comes from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3146,18 +3146,18 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where house value is tracked",
+                            "description": "Account where house value is tracked",
                             "default": "Other (House)",
                             "editable": true,
 "advanced_option": false
                         },
                         {
                             "type": "to_key",
-                            "display_name": "To Envelope",
+                            "display_name": "To Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where sale proceeds are deposited",
+                            "description": "Account where sale proceeds are deposited",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3190,10 +3190,10 @@
 "advanced_option": false
                         },
                         {
-                            "type": "new_home_mortgage_envelope",
-                            "display_name": "New Mortgage Envelope",
+                            "type": "new_home_mortgage_account",
+                            "display_name": "New Mortgage Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where the refinanced home mortgage debt is tracked.",
+                            "description": "Account where the refinanced home mortgage debt is tracked.",
                             "default": "Refinanced Home Mortgage",
                             "editable": true,
 "advanced_option": false
@@ -3232,7 +3232,7 @@
                 {
                     "type": "car_asset",
                     "title": "Car Asset",
-                    "description": "Car being added to the asset account with depreciaation rate specifed by the envelope",
+                    "description": "Car being added to the asset account with depreciaation rate specifed by the account",
                     "icon": "arrow-up",
                     "default_state": true
                 },
@@ -3308,27 +3308,27 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Which envelope the money comes from.",
+                    "description": "Which account the money comes from.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where car value is tracked",
+                    "description": "Account where car value is tracked",
                     "default": "Car",
                     "editable": true,
 "advanced_option": false
                 },
                 {
-                    "type": "car_loan_envelope",
-                    "display_name": "Car Loan Envelope",
+                    "type": "car_loan_account",
+                    "display_name": "Car Loan Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where the car loan debt is tracked.",
+                    "description": "Account where the car loan debt is tracked.",
                     "default": "Car Loan",
                     "editable": true,
 "advanced_option": false
@@ -3364,9 +3364,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where payment comes from",
+                            "description": "Account where payment comes from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3402,9 +3402,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where repair cost is paid from",
+                            "description": "Account where repair cost is paid from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3455,9 +3455,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Which envelope the cost is paid from.",
+                    "description": "Which account the cost is paid from.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -3493,9 +3493,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where childcare costs are paid from",
+                            "description": "Account where childcare costs are paid from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3549,18 +3549,18 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where contributions come from",
+                            "description": "Account where contributions come from",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
                         },
                         {
                             "type": "to_key",
-                            "display_name": "To Envelope",
+                            "display_name": "To Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope where college fund is tracked",
+                            "description": "Account where college fund is tracked",
                             "default": "Other (Savings)",
                             "editable": true,
 "advanced_option": false
@@ -3620,9 +3620,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where wedding costs are paid from",
+                    "description": "Account where wedding costs are paid from",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -3680,9 +3680,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where divorce costs are paid from",
+                    "description": "Account where divorce costs are paid from",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -3773,9 +3773,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where premiums are paid from",
+                    "description": "Account where premiums are paid from",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -3812,9 +3812,9 @@
                         },
                         {
                             "type": "from_key",
-                            "display_name": "From Envelope",
+                            "display_name": "From Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope to cover the out-of-pocket portion.",
+                            "description": "Account to cover the out-of-pocket portion.",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
@@ -3891,9 +3891,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Funding envelope for premium payments.",
+                    "description": "Funding account for premium payments.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -3983,9 +3983,9 @@
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where aid payments are received",
+                    "description": "Account where aid payments are received",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -4052,18 +4052,18 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where funds come from.",
+                    "description": "Account where funds come from.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope to which the investment is applied.",
+                    "description": "Account to which the investment is applied.",
                     "default": "Other (Investments)",
                     "editable": true,
 "advanced_option": false
@@ -4126,7 +4126,7 @@
                     "is_recurring": false,
                     "can_be_reocurring": false,
                     "icon": "arrow-right",
-                    "description": "Transfer money out of an envelope to another envelope.",
+                    "description": "Transfer money out of an account to another account.",
                     "parameters": [
                         {
                             "type": "start_time",
@@ -4148,27 +4148,27 @@
                         },
                         {
                             "type": "to_key",
-                            "display_name": "To Envelope",
+                            "display_name": "To Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope to which the transfer is applied.",
+                            "description": "Account to which the transfer is applied.",
                             "default": "Other (Cash)",
                             "editable": true,
 "advanced_option": false
                         },
                         {
-                            "type": "short_term_capital_gains_envelope",
-                            "display_name": "Short Term Capital Gains Envelope",
+                            "type": "short_term_capital_gains_account",
+                            "display_name": "Short Term Capital Gains Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope to track short term capital gains.",
+                            "description": "Account to track short term capital gains.",
                             "default": "Short Term Capital Gains",
                             "editable": true,
 "advanced_option": false
                         },
                         {
-                            "type": "long_term_capital_gains_envelope",
-                            "display_name": "Long Term Capital Gains Envelope",
+                            "type": "long_term_capital_gains_account",
+                            "display_name": "Long Term Capital Gains Account",
                             "parameter_units": "envelope",
-                            "description": "Envelope to track long term capital gains.",
+                            "description": "Account to track long term capital gains.",
                             "default": "Long Term Capital Gains",
                             "editable": true,
 "advanced_option": false
@@ -4187,19 +4187,19 @@
                         },
                         {
                             "type": "to_key",
-                            "display_name": "To Envelope",
+                            "display_name": "To Account",
                             "parameter_units": "envelope",
                             "default": "Other (Cash)"
                         },
                         {
-                            "type": "short_term_capital_gains_envelope",
-                            "display_name": "Short Term Gains Envelope",
+                            "type": "short_term_capital_gains_account",
+                            "display_name": "Short Term Gains Account",
                             "parameter_units": "envelope",
                             "default": "Short Term Capital Gains"
                         },
                         {
-                            "type": "long_term_capital_gains_envelope",
-                            "display_name": "Long Term Gains Envelope",
+                            "type": "long_term_capital_gains_account",
+                            "display_name": "Long Term Gains Account",
                             "parameter_units": "envelope",
                             "default": "Long Term Capital Gains"
                         }
@@ -4248,18 +4248,18 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where funds originate.",
+                    "description": "Account where funds originate.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope for savings balance.",
+                    "description": "Account for savings balance.",
                     "default": "Other (Savings)",
                     "editable": true,
 "advanced_option": false
@@ -4298,9 +4298,9 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where grocery costs are paid from",
+                    "description": "Account where grocery costs are paid from",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
@@ -4368,27 +4368,27 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope from which funds are contributed.",
+                    "description": "Account from which funds are contributed.",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "To Envelope",
+                    "display_name": "To Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where Roth IRA is tracked.",
+                    "description": "Account where Roth IRA is tracked.",
                     "default": "RothIRA",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "roth_ira_principle_key",
-                    "display_name": "ROTH IRA Principle Envelope",
+                    "display_name": "ROTH IRA Principle Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where ROTH IRA principle is tracked.",
+                    "description": "Account where ROTH IRA principle is tracked.",
                     "default": "ROTH IRA Principle",
                     "editable": true,
 "advanced_option": false
@@ -4455,27 +4455,27 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan funds are received",
+                    "description": "Account where loan funds are received",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "Loan Tracking Envelope",
+                    "display_name": "Loan Tracking Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan balance is tracked during school. No interest",
+                    "description": "Account where loan balance is tracked during school. No interest",
                     "default": "Student Loans Subsidized (During School)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "after_school_key",
-                    "display_name": "After School Loan Tracking Envelope",
+                    "display_name": "After School Loan Tracking Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan balance is tracked after school",
+                    "description": "Account where loan balance is tracked after school",
                     "default": "Student Loans",
                     "editable": true,
 "advanced_option": false
@@ -4542,18 +4542,18 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan funds are received",
+                    "description": "Account where loan funds are received",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "Loan Tracking Envelope",
+                    "display_name": "Loan Tracking Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan balance is tracked",
+                    "description": "Account where loan balance is tracked",
                     "default": "Student Loans",
                     "editable": true,
 "advanced_option": false
@@ -4620,18 +4620,18 @@
                 },
                 {
                     "type": "from_key",
-                    "display_name": "From Envelope",
+                    "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan funds are received",
+                    "description": "Account where loan funds are received",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "to_key",
-                    "display_name": "Loan Tracking Envelope",
+                    "display_name": "Loan Tracking Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where loan balance is tracked",
+                    "description": "Account where loan balance is tracked",
                     "default": "Student Loans",
                     "editable": true,
 "advanced_option": false
@@ -4647,7 +4647,7 @@
             "can_be_reocurring": false,
             "weight": 100,
             "category": "Tax",
-            "description": "Manage USA tax-related envelopes including taxable income, 401K penalties, and taxes.",
+            "description": "Manage USA tax-related accounts including taxable income, 401K penalties, and taxes.",
             "icon": "dollar-sign",
             "parameters": [
                 {
@@ -4661,162 +4661,162 @@
                 },
                 {
                     "type": "taxable_income_key",
-                    "display_name": "Taxable Income Envelope",
+                    "display_name": "Taxable Income Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where taxable income is tracked",
+                    "description": "Account where taxable income is tracked",
                     "default": "Taxable Income",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "penalty_401k_key",
-                    "display_name": "401K Penalty Envelope",
+                    "display_name": "401K Penalty Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401K penalties are tracked",
+                    "description": "Account where 401K penalties are tracked",
                     "default": "401K Penalty",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "taxes_401k_key",
-                    "display_name": "401K Taxes Envelope",
+                    "display_name": "401K Taxes Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401K taxes are tracked",
+                    "description": "Account where 401K taxes are tracked",
                     "default": "401K Taxes",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "roth_key",
-                    "display_name": "ROTH Envelope",
+                    "display_name": "ROTH Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where ROTH contributions are tracked",
+                    "description": "Account where ROTH contributions are tracked",
                     "default": "RothIRA",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "p_401k_key",
-                    "display_name": "401K Envelope",
+                    "display_name": "401K Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401K contributions are tracked",
+                    "description": "Account where 401K contributions are tracked",
                     "default": "Other (Retirement)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "taxable_home_value_key",
-                    "display_name": "Taxable Home Value Envelope",
+                    "display_name": "Taxable Home Value Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where taxable home value is tracked",
+                    "description": "Account where taxable home value is tracked",
                     "default": "House",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "federal_withholdings_key",
-                    "display_name": "Federal Withholdings Envelope",
+                    "display_name": "Federal Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where federal withholdings are tracked",
+                    "description": "Account where federal withholdings are tracked",
                     "default": "Federal Withholdings",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "state_withholdings_key",
-                    "display_name": "State Withholdings Envelope",
+                    "display_name": "State Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where state withholdings are tracked",
+                    "description": "Account where state withholdings are tracked",
                     "default": "State Withholdings",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "local_withholdings_key",
-                    "display_name": "Local Withholdings Envelope",
+                    "display_name": "Local Withholdings Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where local withholdings are tracked",
+                    "description": "Account where local withholdings are tracked",
                     "default": "Local Withholdings",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "ira_contributions_key",
-                    "display_name": "IRA Contributions Envelope",
+                    "display_name": "IRA Contributions Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where IRA contributions are tracked",
+                    "description": "Account where IRA contributions are tracked",
                     "default": "IRA Contributions",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "p_401k_withdraw_withholding_key",
-                    "display_name": "401K Withdraw Withholding Envelope",
+                    "display_name": "401K Withdraw Withholding Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401K withdrawals taxes are withheld",
+                    "description": "Account where 401K withdrawals taxes are withheld",
                     "default": "401K Withdraw Withholding",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "p_401k_withdraw_key",
-                    "display_name": "401K Withdraw Envelope",
+                    "display_name": "401K Withdraw Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where 401K withdrawals are deposited",
+                    "description": "Account where 401K withdrawals are deposited",
                     "default": "401K Withdraw",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "roth_ira_withdraw_key",
-                    "display_name": "ROTH IRA Withdraw Envelope",
+                    "display_name": "ROTH IRA Withdraw Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where ROTH IRA withdrawals are deposited",
+                    "description": "Account where ROTH IRA withdrawals are deposited",
                     "default": "ROTH IRA Withdraw",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "roth_ira_principle_key",
-                    "display_name": "ROTH IRA Principle Envelope",
+                    "display_name": "ROTH IRA Principle Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where ROTH IRA principle is tracked",
+                    "description": "Account where ROTH IRA principle is tracked",
                     "default": "ROTH IRA Principle",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "penalty_roth_key",
-                    "display_name": "ROTH IRA Penalty Envelope",
+                    "display_name": "ROTH IRA Penalty Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where ROTH IRA penalties are tracked",
+                    "description": "Account where ROTH IRA penalties are tracked",
                     "default": "ROTH IRA Penalty",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "irs_registered_account_key",
-                    "display_name": "IRS Registered Account Envelope",
+                    "display_name": "IRS Registered Account Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where IRS registered account is tracked",
+                    "description": "Account where IRS registered account is tracked",
                     "default": "Other (Cash)",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "long_term_capital_gains_key",
-                    "display_name": "Long Term Gains Envelope",
+                    "display_name": "Long Term Gains Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where long term capital gains are tracked",
+                    "description": "Account where long term capital gains are tracked",
                     "default": "Long Term Capital Gains",
                     "editable": true,
 "advanced_option": false
                 },
                 {
                     "type": "short_term_capital_gains_key",
-                    "display_name": "Short Term Gains Envelope",
+                    "display_name": "Short Term Gains Account",
                     "parameter_units": "envelope",
-                    "description": "Envelope where short term capital gains are tracked",
+                    "description": "Account where short term capital gains are tracked",
                     "default": "Short Term Capital Gains",
                     "editable": true,
 "advanced_option": false

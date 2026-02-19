@@ -26,9 +26,9 @@ export interface inflowParams {
   frequency_days: number;
   amount: number;
   to_key: string;
-  final_recurring_inflow: number;
-  number_of_recurring_inflows: number;
-  total_inflow: number;
+  final_recurring_inflow?: number;
+  number_of_recurring_inflows?: number;
+  total_inflow?: number;
 }
 
 export interface inflow_update_amountParams {
@@ -81,15 +81,15 @@ export interface declare_accountsFunctionState extends EventFunctionState {
 export interface declare_accountsParams {
   start_time: number;
   amount1: number;
-  envelope1: string;
+  account1: string;
   amount2: number;
-  envelope2: string;
+  account2: string;
   amount3: number;
-  envelope3: string;
+  account3: string;
   amount4: number;
-  envelope4: string;
+  account4: string;
   amount5: number;
-  envelope5: string;
+  account5: string;
 }
 
 export type transfer_moneyFunctionTypes = "inflow" | "outflow";
@@ -437,7 +437,7 @@ export interface buy_houseParams {
   downpayment: number;
   from_key: string;
   to_key: string;
-  mortgage_envelope: string;
+  mortgage_account: string;
   property_tax_rate: number;
   end_time?: number;
 }
@@ -471,7 +471,7 @@ export interface buy_house_sell_houseParams {
 export interface buy_house_refinance_homeParams {
   start_time: number;
   new_loan_term_years: number;
-  new_home_mortgage_envelope: string;
+  new_home_mortgage_account: string;
 }
 
 export type buy_carFunctionTypes = "downpayment" | "loan_payment" | "car_asset" | "car_loan" | "final_car_payment_correction";
@@ -493,7 +493,7 @@ export interface buy_carParams {
   downpayment: number;
   from_key: string;
   to_key: string;
-  car_loan_envelope: string;
+  car_loan_account: string;
 }
 
 export interface buy_car_pay_loan_earlyParams {
@@ -629,15 +629,15 @@ export interface invest_money_transfer_outParams {
   start_time: number;
   amount: number;
   to_key: string;
-  short_term_capital_gains_envelope: string;
-  long_term_capital_gains_envelope: string;
+  short_term_capital_gains_account: string;
+  long_term_capital_gains_account: string;
 }
 
 export interface invest_money_sell_allParams {
   start_time: number;
   to_key: string;
-  short_term_capital_gains_envelope: string;
-  long_term_capital_gains_envelope: string;
+  short_term_capital_gains_account: string;
+  long_term_capital_gains_account: string;
 }
 
 export interface high_yield_savings_accountParams {

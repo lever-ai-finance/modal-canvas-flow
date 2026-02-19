@@ -57,6 +57,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSignIn, mode, 
   const passwordStrength = getPasswordStrength(password);
   const passwordsMatch = password === confirmPassword;
 
+  const isGmailAddress = (value: string) => /^[^@\s]+@gmail\.com$/i.test(value.trim());
+
   // Helper function to clear all form fields
   const clearForm = () => {
     setEmail('');
@@ -82,6 +84,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSignIn, mode, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // If user entered Gmail, direct them to Google OAuth flow automatically
+    if (isGmailAddress(email)) {
+      await handleGoogleSignIn();
+      return;
+    }
 
     // Log button click for analytics
     if (logAnonymousButtonClick) {

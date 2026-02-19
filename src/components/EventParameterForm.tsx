@@ -1013,10 +1013,10 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                             {/* Read-only Information */}
                             {readOnlyParams.length > 0 && (
                                 <div className="bg-card rounded-lg border border-border p-4">
-                                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                    {/* <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                                         <Clock className="w-4 h-4 text-muted-foreground" />
                                         Read-only Information
-                                    </h4>
+                                    </h4> */}
                                     <div className="space-y-3">
                                         {readOnlyParams.map((item, index) => (
                                             <div key={index} className="flex flex-col gap-1">

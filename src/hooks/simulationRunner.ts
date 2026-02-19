@@ -293,13 +293,13 @@ const declare_accounts = (day: number, event: any, envelopes: Record<string, any
 
     //event logic
     if (params.start_time == day) {
-        // Set balances of each envelope to the amount when defined
+        // Set balances of each account to the amount when defined
         const pairs: Array<[string | undefined, number | undefined]> = [
-            [params.envelope1, params.amount1],
-            [params.envelope2, params.amount2],
-            [params.envelope3, params.amount3],
-            [params.envelope4, params.amount4],
-            [params.envelope5, params.amount5]
+            [params.account1, params.amount1],
+            [params.account2, params.amount2],
+            [params.account3, params.amount3],
+            [params.account4, params.amount4],
+            [params.account5, params.amount5]
         ];
 
         for (const [envelopeKey, amount] of pairs) {
@@ -631,7 +631,7 @@ const buy_car = (
 ) => {
     const params = event.parameters as AllEventTypes.buy_carParams;
 
-    if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.car_loan_envelope]) {
+    if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.car_loan_account]) {
         return;
     }
 
@@ -640,7 +640,7 @@ const buy_car = (
 
     if (params.start_time == day && !event._car_loan_state) {
         const principal = Math.max(0, params.car_value - params.downpayment);
-        const annualRate = envelopes[params.car_loan_envelope]?.growth_rate ?? 0;
+        const annualRate = envelopes[params.car_loan_account]?.growth_rate ?? 0;
         const totalPayments = Math.max(0, Math.round((loanTermYears * 365) / paymentIntervalDays));
         const paymentsPerYear = 365 / paymentIntervalDays;
         const paymentAmount = calculateInstallmentPayment(principal, annualRate, totalPayments, paymentsPerYear);
@@ -659,7 +659,7 @@ const buy_car = (
 
         envelopes[params.from_key].balance -= params.downpayment;
         envelopes[params.to_key].balance += params.car_value;
-        envelopes[params.car_loan_envelope].balance -= principal;
+        envelopes[params.car_loan_account].balance -= principal;
     }
 
     if (event.updating_events.length > 0) {
@@ -669,9 +669,9 @@ const buy_car = (
                     const uParams = updating_event.parameters as AllEventTypes.buy_car_pay_loan_earlyParams;
                     if (uParams.start_time == day && event._car_loan_state) {
                         envelopes[uParams.from_key].balance -= uParams.amount;
-                        envelopes[params.car_loan_envelope].balance += uParams.amount;
+                        envelopes[params.car_loan_account].balance += uParams.amount;
 
-                        event._car_loan_state.remaining_principal = Math.max(0, -envelopes[params.car_loan_envelope].balance);
+                        event._car_loan_state.remaining_principal = Math.max(0, -envelopes[params.car_loan_account].balance);
                         if (event._car_loan_state.remaining_principal <= 0) {
                             event._car_loan_state.end_day = day;
                             params.end_time = day;
@@ -695,7 +695,7 @@ const buy_car = (
 
     if (event._car_loan_state && day >= event._car_loan_state.start_time && day <= event._car_loan_state.end_day) {
         const state = event._car_loan_state;
-        const outstandingDebt = Math.max(0, -envelopes[params.car_loan_envelope].balance);
+        const outstandingDebt = Math.max(0, -envelopes[params.car_loan_account].balance);
         state.remaining_principal = outstandingDebt;
 
         const interval = Number(state.payment_interval_days || paymentIntervalDays);
@@ -709,9 +709,9 @@ const buy_car = (
             const actualPayment = Math.min(scheduledPayment, outstandingDebt);
 
             envelopes[params.from_key].balance -= actualPayment;
-            envelopes[params.car_loan_envelope].balance += actualPayment;
+            envelopes[params.car_loan_account].balance += actualPayment;
 
-            state.remaining_principal = Math.max(0, -envelopes[params.car_loan_envelope].balance);
+            state.remaining_principal = Math.max(0, -envelopes[params.car_loan_account].balance);
             state.payments_made = (state.payments_made ?? 0) + 1;
             state.next_payment_day = (state.next_payment_day ?? (state.start_time + interval)) + interval;
 
@@ -738,7 +738,7 @@ const buy_house = (
 ) => {
     const params = event.parameters as AllEventTypes.buy_houseParams;
     // Check if any of the envelopes are undefined if so then skip
-    if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.mortgage_envelope]) {
+    if (!envelopes[params.from_key] || !envelopes[params.to_key] || !envelopes[params.mortgage_account]) {
         return;
     }
 
@@ -749,7 +749,7 @@ const buy_house = (
     // On day of purchase set up the morgage and down payment
     if (params.start_time == day && !event._mortgage_state) {
         const principal = Math.max(0, params.home_value - params.downpayment);
-        const annualRate = envelopes[params.mortgage_envelope]?.growth_rate ?? 0;
+        const annualRate = envelopes[params.mortgage_account]?.growth_rate ?? 0;
         const monthlyPayment = calculateMortgagePayment(principal, annualRate, loan_term_years);
         const totalPayments = Math.max(0, Math.round(loan_term_years * 12));
         const projectedEndDay = day + Math.ceil((365 / 12) * totalPayments);
@@ -773,7 +773,7 @@ const buy_house = (
             envelopes[params.to_key].balance += params.home_value;
         }
         if (isEnabled('morgage_loan')) {
-            envelopes[params.mortgage_envelope].balance -= principal;
+            envelopes[params.mortgage_account].balance -= principal;
         }
     }
 
@@ -794,8 +794,8 @@ const buy_house = (
                     if (uParams.start_time == day && event._mortgage_state) {
                         envelopes[uParams.from_key].balance -= uParams.amount;
                         if (isEnabled('morgage_loan')) {
-                            envelopes[params.mortgage_envelope].balance += uParams.amount;
-                            event._mortgage_state.remaining_principal = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+                            envelopes[params.mortgage_account].balance += uParams.amount;
+                            event._mortgage_state.remaining_principal = Math.max(0, -envelopes[params.mortgage_account].balance);
                             if (event._mortgage_state.remaining_principal <= 0) {
                                 event._mortgage_state.end_day = day;
                             }
@@ -820,10 +820,10 @@ const buy_house = (
                         envelopes[uParams.to_key].balance += uParams.sale_price;
 
                         if (event._mortgage_state) {
-                            const payoff = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+                            const payoff = Math.max(0, -envelopes[params.mortgage_account].balance);
                             envelopes[uParams.to_key].balance -= payoff;
                             if (isEnabled('morgage_loan')) {
-                                envelopes[params.mortgage_envelope].balance += payoff;
+                                envelopes[params.mortgage_account].balance += payoff;
                             }
                             event._mortgage_state.remaining_principal = 0;
                             event._mortgage_state.end_day = day;
@@ -834,13 +834,13 @@ const buy_house = (
                 case 'refinance_home': {
                     const uParams = updating_event.parameters as AllEventTypes.buy_house_refinance_homeParams;
                     if (uParams.start_time == day && event._mortgage_state) {
-                        const newEnvelopeKey = uParams.new_home_mortgage_envelope;
+                        const newEnvelopeKey = uParams.new_home_mortgage_account;
                         if (!newEnvelopeKey || !envelopes[newEnvelopeKey]) {
                             break;
                         }
 
-                        const remainingPrincipal = Math.max(0, -envelopes[params.mortgage_envelope].balance);
-                        const previousEnvelopeKey = params.mortgage_envelope;
+                        const remainingPrincipal = Math.max(0, -envelopes[params.mortgage_account].balance);
+                        const previousEnvelopeKey = params.mortgage_account;
 
                         if (isEnabled('morgage_loan')) {
                             if (previousEnvelopeKey && envelopes[previousEnvelopeKey]) {
@@ -855,7 +855,7 @@ const buy_house = (
                         const totalPayments = Math.max(0, Math.round(newLoanTermYears * 12));
                         const projectedEndDay = day + Math.ceil((365 / 12) * totalPayments);
 
-                        params.mortgage_envelope = newEnvelopeKey;
+                        params.mortgage_account = newEnvelopeKey;
                         params.loan_term_years = String(newLoanTermYears);
 
                         event._mortgage_state = {
@@ -877,7 +877,7 @@ const buy_house = (
 
     if (event._mortgage_state && day >= event._mortgage_state.start_time && day <= event._mortgage_state.end_day) {
         const state = event._mortgage_state;
-        const outstandingDebt = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+        const outstandingDebt = Math.max(0, -envelopes[params.mortgage_account].balance);
         state.remaining_principal = outstandingDebt;
 
         const canMakePayment =
@@ -892,8 +892,8 @@ const buy_house = (
             if (isEnabled('mortgage_payment')) {
                 envelopes[params.from_key].balance -= actualPayment;
                 if (isEnabled('morgage_loan')) {
-                    envelopes[params.mortgage_envelope].balance += actualPayment;
-                    state.remaining_principal = Math.max(0, -envelopes[params.mortgage_envelope].balance);
+                    envelopes[params.mortgage_account].balance += actualPayment;
+                    state.remaining_principal = Math.max(0, -envelopes[params.mortgage_account].balance);
                 }
             }
 
@@ -904,7 +904,7 @@ const buy_house = (
 
             if (isEnabled('final_home_payment_correction') && state.remaining_principal <= 0) {
                 if (isEnabled('morgage_loan')) {
-                    envelopes[params.mortgage_envelope].balance = 0;
+                    envelopes[params.mortgage_account].balance = 0;
                 }
             }
 
