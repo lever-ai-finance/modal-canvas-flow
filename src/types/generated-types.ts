@@ -62,9 +62,9 @@ export interface outflowParams {
   frequency_days: number;
   amount: number;
   from_key: string;
-  final_recurring_outflow: number;
-  number_of_recurring_outflows: number;
-  total_outflow: number;
+  final_recurring_outflow?: number;
+  number_of_recurring_outflows?: number;
+  total_outflow?: number;
 }
 
 export interface outflow_update_amountParams {

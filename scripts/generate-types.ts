@@ -175,7 +175,7 @@ function getParamType(parameterUnits: string): string {
     case 'years':
     case 'date':
       return 'number';
-    case 'account':
+    case 'envelope':
     case 'enum':
     case 'icon':
     case 'string':

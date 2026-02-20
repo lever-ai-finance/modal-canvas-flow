@@ -162,7 +162,7 @@ const applyEventsToDay = (
         if (event.parameters.start_time <= day) { // event.paramters.start_date exists
             switch (event.type) {
                 case "inflow":
-                    applyInflowToDay(day, event, envelopes);
+                    applyInflowToDay(day, event, envelopes, onParameterUpdate);
                     break;
                 case "outflow":
                     applyOutflowToDay(day, event, envelopes);
@@ -204,7 +204,7 @@ const applyEventsToDay = (
     }
 }
 
-const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any>) => {
+const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate?: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.inflowParams;
 
     if (event.updating_events.length > 0) {
@@ -249,6 +249,8 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
     }
     if (params.start_time == day) {
         envelopes[params.to_key].balance += params.amount;
+
+        // Set the
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {

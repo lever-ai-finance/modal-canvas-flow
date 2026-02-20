@@ -56,7 +56,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   });
   const [loading, setLoading] = useState(false);
   const { upsertAnonymousOnboarding, upsertAnonymousPlan, fetchAnonymousOnboarding, logAnonymousButtonClick } = useAuth();
-  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon, addEvent} = usePlan();
+  const { updateBirthDate, updateLocation, updateDegree, updateOccupation, updateGoals, addEnvelope, deleteEnvelope, updateEnvelope, plan, schema, deleteEvent, getEventIcon, addEvent, updatePlanTitle} = usePlan();
 
   const [selectedDefaultEnvelope, setSelectedDefaultEnvelope] = useState<string>('');
   const [selectedDefaultEvent, setSelectedDefaultEvent] = useState<string>('');
@@ -132,7 +132,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
         const overrides: Record<string, string | number> = {};
         chunk.forEach((entry, index) => {
           const idx = index + 1;
-          overrides[`envelope${idx}`] = entry.name;
+          overrides[`account${idx}`] = entry.name;
           overrides[`amount${idx}`] = entry.amount;
         });
 
@@ -157,6 +157,8 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
 
       // Update birth date
       updateBirthDate(birthDateString);
+
+      updatePlanTitle(data.name ? `${data.name}'s Plan` : 'Onboarding Plan');
 
       // Update location
       if (data.location) {
@@ -248,9 +250,9 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     }
 
     // When completing the modal, transition from 'user_info' to 'basics' to start progressive access
-    if (logAnonymousButtonClick) {
-      await logAnonymousButtonClick('modal_completed');
-    }
+    // if (logAnonymousButtonClick) {
+    //   await logAnonymousButtonClick('modal_completed');
+    // }
     // Close the modal and let the user continue with progressive onboarding
     onAuthRequired!();
   };

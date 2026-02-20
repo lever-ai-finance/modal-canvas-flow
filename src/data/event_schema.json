@@ -1,7 +1,7 @@
 {
     "inflation_rate": 0.03,
     "adjust_for_inflation": true,
-    "default_accounts": [
+    "default_envelopes": [
         {
             "name": "Cash",
             "category": "Cash",
