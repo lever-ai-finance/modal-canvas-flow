@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { Plan, Envelope } from '../contexts/PlanContext';
-import { Menu, Plus, Save, FileText, FolderOpen, User, Edit3, HelpCircle, Split, Sparkles, Receipt } from 'lucide-react';
+import { Menu, Plus, Save, FileText, FolderOpen, User, Edit3, HelpCircle, Split, Sparkles, Receipt, Loader2 } from 'lucide-react';
 import { RefreshCw, Copy } from 'lucide-react';
 import {
   DropdownMenu,
@@ -35,7 +35,7 @@ import PremiumFeatureModal from '../components/PremiumFeatureModal';
 
 export default function Index() {
   // Auth context
-  const { user, signOut: authSignOut, logAnonymousButtonClick, onboarding_state, isOnboardingAtOrAbove, isLoading, isPremium } = useAuth();
+  const { user, signOut: authSignOut, logAnonymousButtonClick, onboarding_state, isOnboardingAtOrAbove, isLoading, isPremium, savePlanToCloud } = useAuth();
 
   // Plan context
   const {
@@ -51,7 +51,8 @@ export default function Index() {
     isCompareMode,
     setCompareMode,
     updatePlanDirectly,
-    triggerSimulation
+    triggerSimulation,
+    isPlanLoading
   } = usePlan();
 
   // Modal states
@@ -394,6 +395,15 @@ export default function Index() {
           onChartClick={handleVisualizationClick}
           onEditEnvelope={handleOpenEnvelopeEditModal}
         />
+        {/* Subtle loading overlay while cloud plan is being fetched */}
+        {isPlanLoading && (
+          <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 transition-opacity duration-300">
+            <div className="flex items-center gap-3 bg-white/90 border border-gray-200 shadow-sm rounded-full px-5 py-2.5">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground font-medium">Loading your plan...</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Overlay elements with higher z-index */}
@@ -534,11 +544,18 @@ export default function Index() {
                 Open
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => checkViewingMode(() => setSaveModalOpen(true))}
+                onClick={() => checkViewingMode(() => savePlanToCloud(plan!))}
                 className="cursor-pointer"
               >
                 <Save className="mr-2 h-4 w-4" />
                 Save
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => checkViewingMode(() => setSaveModalOpen(true))}
+                className="cursor-pointer"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save As..
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => checkViewingMode(() => setPlanPreferencesModalOpen(true))}

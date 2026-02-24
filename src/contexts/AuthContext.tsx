@@ -239,9 +239,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const targetUserId = userIdArg || user?.id;
         if (!targetUserId) return 0;
 
+        // Guard: set ref immediately to prevent concurrent duplicate calls
         if (claimedAnonymousPlansUserRef.current === targetUserId) {
             return 0;
         }
+        claimedAnonymousPlansUserRef.current = targetUserId;
 
         const anonId = getOrCreateAnonId();
 
@@ -327,14 +329,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .update({ converted_user: targetUserId })
                 .eq('id', anonId);
 
-            claimedAnonymousPlansUserRef.current = targetUserId;
-
             if (importedCount > 0) {
                 toast.success(importedCount === 1 ? 'Imported your onboarding plan.' : `Imported ${importedCount} onboarding plans.`);
             }
 
             return importedCount;
         } catch (error) {
+            // Reset guard on failure so it can be retried
+            claimedAnonymousPlansUserRef.current = null;
             console.error('Error claiming anonymous plans:', error);
             return 0;
         }
@@ -393,6 +395,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (session?.user) {
                     setTimeout(async () => {
                         //console.log('🔄 Fetching user data for:', session.user.id);
+                        console.log('Claim Anonymous plans')
                         await claimAnonymousPlansToUser(session.user.id);
                         await fetchUserData(session.user.id);
                     }, 0);
@@ -407,10 +410,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             if (session?.user) {
-                //console.log('🔄 Fetching2 user data for:', session.user.id);
-                claimAnonymousPlansToUser(session.user.id).then(() => {
-                    fetchUserData(session.user.id);
-                });
+                fetchUserData(session.user.id);
             }
         });
 
@@ -436,11 +436,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         console.log('✅ Sign in successful:', data.user?.email);
-        // After successful sign-in, fetch user data (and create profile if needed)
-        if (data.user && data.user.id) {
-            await claimAnonymousPlansToUser(data.user.id);
-            await fetchUserData(data.user.id);
-        }
         return data;
     };
 

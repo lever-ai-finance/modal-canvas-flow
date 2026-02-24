@@ -8,7 +8,7 @@ import { Checkbox } from './ui/checkbox';
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { DollarSign, Target, Home, Plane, TrendingUp, PiggyBank, Building, Wallet, Shield, Sparkles, Pencil, Plus, Trash2, HelpCircle, CreditCard, ChevronDown, ChevronUp } from 'lucide-react';
+import { DollarSign, Target, Home, Plane, TrendingUp, PiggyBank, Building, Wallet, Shield, Sparkles, Pencil, Plus, Trash2, HelpCircle, CreditCard, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { usePlan } from '../contexts/PlanContext';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -63,6 +63,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   const [showPersonalInfoAdvanced, setShowPersonalInfoAdvanced] = useState(false);
   const [showDebtValidationModal, setShowDebtValidationModal] = useState(false);
   const [debtWithoutPayment, setDebtWithoutPayment] = useState<Envelope | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [declareAccountEventIds, setDeclareAccountEventIds] = useState<number[]>([]);
   const [accounts, setAccounts] = useState<Record<string, number>>(() => {
     // initialize from plan if available on first render
@@ -109,6 +110,8 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   const totalSteps = 4;
 
   const handleNext = async () => {
+    if (isCompleting) return;
+
     // After step 1 (Account Balances), save balances as initial values
     if (currentStep === 2) {
       // Take the names and the balacnes for each envelope and put into declare accounts event
@@ -236,25 +239,22 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   };
 
   const completeOnboarding = async () => {
-    // save plan to anonymous onboarding data
+    setIsCompleting(true);
     try {
       if (plan) {
-        const onboardingName = data.name?.trim();
-        const planName = onboardingName
-          ? `${onboardingName} Plan`
-          : ((plan.title && plan.title.trim()) ? plan.title.trim() : 'Onboarding Plan');
-        await upsertAnonymousPlan(planName, plan);
+        const onboardingName = plan.title;
+        await upsertAnonymousPlan(onboardingName, plan);
       }
     } catch (error) {
       console.warn('Failed to persist onboarding plan anonymously:', error);
     }
-
     // When completing the modal, transition from 'user_info' to 'basics' to start progressive access
     // if (logAnonymousButtonClick) {
     //   await logAnonymousButtonClick('modal_completed');
     // }
     // Close the modal and let the user continue with progressive onboarding
-    onAuthRequired!();
+    onAuthRequired?.();
+    setIsCompleting(false);
   };
 
   const handleAddPaymentPlan = () => {
@@ -680,6 +680,8 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
   }
 
   const handleSkipToLogin = async () => {
+    if (isCompleting) return;
+
     try {
       await logAnonymousButtonClick?.('skip_to_login');
     } catch (e) { }
@@ -738,6 +740,13 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
           {currentStepData.content}
         </div>
 
+        {isCompleting && (
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground pb-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Finalizing your onboarding...</span>
+          </div>
+        )}
+
         {/* Subtle Skip-to-login button on first step (Account Balances) */}
         {currentStep === 0 && (
           <div className="absolute left-4 bottom-4">
@@ -760,14 +769,20 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
             <Button
               variant="outline"
               onClick={handleBack}
+              disabled={isCompleting}
               className="px-8"
             >
               Back
             </Button>
           )}
           {currentStep === 0 && <div></div>}
-          <Button onClick={handleNext} className="px-8">
-            {currentStep === totalSteps - 1 ? 'Lets Go!' : currentStep === 0 ? 'Begin Journey' : 'Continue'}
+          <Button onClick={handleNext} disabled={isCompleting} className="px-8">
+            {isCompleting ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </span>
+            ) : (currentStep === totalSteps - 1 ? 'Lets Go!' : currentStep === 0 ? 'Begin Journey' : 'Continue')}
           </Button>
         </div>
       </DialogContent>

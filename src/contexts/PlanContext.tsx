@@ -390,6 +390,7 @@ interface PlanContextType {
     getEventOnboardingStage: (eventType: string) => string | undefined;
     restartPlan: () => void; // restart to blank plan for both current and locked
     setShowAll: (value: boolean) => void;
+    isPlanLoading: boolean; // True while waiting for user's cloud plan to load
     // Event sorting methods
     sortPlanEvents: (planData: Plan) => Plan; // Sort events and updating events by start_time
 }
@@ -471,6 +472,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
     const [isVisualizationReady, setIsVisualizationReady] = useState(false);
     const [shouldTriggerSimulation, setShouldTriggerSimulation] = useState(false);
     const [isExampleViewing, setIsExampleViewing] = useState(false); // Add this new state
+    const [isPlanLoading, setIsPlanLoading] = useState(false); // True while waiting for cloud plan to load
     // Add compare mode state with enhanced setter
     const [isCompareMode, setCompareModeRaw] = useState(false);
 
@@ -689,7 +691,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
                         });
                     }
                 } else {
-                // Continue with normal initialization if no example plan found
+                // Continue with normal initialization if no example planid found in url
+
                 console.log('➡️ Continuing with normal initialization...');
                 let mainPlan = null;
                 let lockedPlan = null;
@@ -724,6 +727,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
                 if (user) {
                     if (!userData) {
                         console.log('⏳ Signed-in user detected, waiting for user data before initializing plan');
+                        setIsPlanLoading(true);
                         return;
                     }
 
@@ -732,17 +736,16 @@ export function PlanProvider({ children }: PlanProviderProps) {
                         console.log('📥 Loading most recent saved plan from user profile:', mostRecentSavedPlan.plan_name);
                         loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
                         lastLoadedUserPlanRef.current = user.id;
+                        setIsPlanLoading(false);
                         setIsInitialized(true);
                         return;
                     }
 
                     console.log('ℹ️ Signed-in user has no saved plans, falling back to defaults');
+                    setIsPlanLoading(false);
                 }
-                    
-                
 
-
-                // If localStorage didn't work, use defaults
+                // If not signed in or no saved plans
                 console.log('📄 Using default plans as fallback');
                 mainPlan = defaultPlanData;
                 lockedPlan = defaultLockedPlanData;
@@ -750,7 +753,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
                 // Load the default plans
                 loadPlanData(mainPlan, lockedPlan);
                 setIsInitialized(true);
-
             }
         }
         catch (error) {
@@ -778,15 +780,26 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
         if (!user) {
             lastLoadedUserPlanRef.current = null;
+            setIsPlanLoading(false);
             return;
         }
 
-        if (!isInitialized || !userData) return;
-        if (lastLoadedUserPlanRef.current === user.id) return;
+        if (!isInitialized || !userData) {
+            // User is signed in but data isn't ready yet
+            if (lastLoadedUserPlanRef.current !== user.id) {
+                setIsPlanLoading(true);
+            }
+            return;
+        }
+        if (lastLoadedUserPlanRef.current === user.id) {
+            setIsPlanLoading(false);
+            return;
+        }
 
         const mostRecentSavedPlan = getMostRecentSavedPlan();
         if (!mostRecentSavedPlan?.plan_data) {
             lastLoadedUserPlanRef.current = user.id;
+            setIsPlanLoading(false);
             return;
         }
 
@@ -794,6 +807,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
         loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
 
         lastLoadedUserPlanRef.current = user.id;
+        setIsPlanLoading(false);
     }, [user, userData, isInitialized, loadPlanData, getMostRecentSavedPlan]);
 
     // Effect to handle simulation triggering after plan updates
@@ -2146,6 +2160,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
         },
         show_all,
         setShowAll,
+        isPlanLoading,
         // Sort events and updating events by start_time parameter
         sortPlanEvents: (planData: Plan): Plan => {
             const sortedPlan = { ...planData };
