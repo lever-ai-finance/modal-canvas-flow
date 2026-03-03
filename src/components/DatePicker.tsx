@@ -24,7 +24,7 @@ interface DatePickerProps {
 const DatePicker: React.FC<DatePickerProps> = ({
     value,
     onChange,
-    placeholder = "Pick a date",
+    placeholder = "MM / DD / YYYY",
     className,
     disabled = false,
     showAgeInput = true

@@ -46,6 +46,7 @@ export default function Index() {
     updatePlanTitle,
     lockPlan,
     addEvent,
+    addEnvelope,
     copyPlanToLock,
     isExampleViewing,
     isCompareMode,
@@ -335,21 +336,24 @@ export default function Index() {
   // Handler to save envelope (add or edit)
   const handleSaveEnvelope = (envelope: Envelope) => {
     if (!plan) return;
-    let updatedEnvelopes;
+    
     if (isAddingEnvelope) {
-      updatedEnvelopes = [...plan.envelopes, envelope];
+      // Use addEnvelope function which properly assigns IDs
+      addEnvelope(envelope);
     } else if (editingEnvelope) {
-      updatedEnvelopes = plan.envelopes.map(e => e.name === editingEnvelope.name ? envelope : e);
-    } else {
-      updatedEnvelopes = plan.envelopes;
+      // For editing, manually update the array since we're replacing an existing envelope
+      const updatedEnvelopes = plan.envelopes.map(e => 
+        e.name === editingEnvelope.name ? envelope : e
+      );
+      const updatedPlan = { ...plan, envelopes: updatedEnvelopes };
+      updatePlanDirectly(updatedPlan);
     }
-    // Update plan directly to preserve locked plan and visualization state
-    const updatedPlan = { ...plan, envelopes: updatedEnvelopes };
-    updatePlanDirectly(updatedPlan);
+    
     // Close modal and reset state
     setAddEnvelopeModalOpen(false);
     setEditingEnvelope(null);
     setIsAddingEnvelope(false);
+    
     // Trigger simulation after a short delay to ensure plan is updated
     setTimeout(() => {
       triggerSimulation();
