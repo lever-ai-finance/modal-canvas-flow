@@ -112,7 +112,7 @@ export default function Index() {
   const showPostSignInModals = useCallback(() => {
     if (!localStorage.getItem('has-seen-subscription-modal')) {
       //setUserAccountModalOpen(true);
-      setSubscriptionModalOpen(true);
+      //setSubscriptionModalOpen(true);
       localStorage.setItem('has-seen-subscription-modal', 'true');
     } else {
       //setUserAccountModalOpen(true);

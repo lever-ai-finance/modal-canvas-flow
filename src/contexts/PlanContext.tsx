@@ -766,50 +766,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
         tryLoadPlan();
     }, [isInitialized, fetchDefaultPlans, getMostRecentSavedPlan, loadPlanData, user, userData]);
 
-    // Load most recent saved plan after sign-in, even after initial app initialization is complete
-    useEffect(() => {
-
-        //Check to see if using Financial-Calculator and if so then dont load plan for signed in user
-        const urlParams = new URLSearchParams(window.location.search);
-        const planId = urlParams.get('plan_id');
-        const isFinancialCalculatorViewing = planId === 'Financial-Calculator';
-
-        if (isFinancialCalculatorViewing) {
-            return;
-        }
-
-        if (!user) {
-            lastLoadedUserPlanRef.current = null;
-            setIsPlanLoading(false);
-            return;
-        }
-
-        if (!isInitialized || !userData) {
-            // User is signed in but data isn't ready yet
-            if (lastLoadedUserPlanRef.current !== user.id) {
-                setIsPlanLoading(true);
-            }
-            return;
-        }
-        if (lastLoadedUserPlanRef.current === user.id) {
-            setIsPlanLoading(false);
-            return;
-        }
-
-        const mostRecentSavedPlan = getMostRecentSavedPlan();
-        if (!mostRecentSavedPlan?.plan_data) {
-            lastLoadedUserPlanRef.current = user.id;
-            setIsPlanLoading(false);
-            return;
-        }
-
-        console.log('📥 Loading most recent saved plan after sign-in:', mostRecentSavedPlan.plan_name);
-        loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
-
-        lastLoadedUserPlanRef.current = user.id;
-        setIsPlanLoading(false);
-    }, [user, userData, isInitialized, loadPlanData, getMostRecentSavedPlan]);
-
     // Effect to handle simulation triggering after plan updates
     useEffect(() => {
         if (shouldTriggerSimulation && isVisualizationReady && plan) {
@@ -844,6 +800,86 @@ export function PlanProvider({ children }: PlanProviderProps) {
             view_end_date: endDate.toISOString().split('T')[0]
         };
     }, []);
+
+    // Load most recent saved plan after sign-in, but first handle onboarding plan conversion
+    useEffect(() => {
+
+        //Check to see if using Financial-Calculator and if so then dont load plan for signed in user
+        const urlParams = new URLSearchParams(window.location.search);
+        const planId = urlParams.get('plan_id');
+        const isFinancialCalculatorViewing = planId === 'Financial-Calculator';
+
+        if (isFinancialCalculatorViewing) {
+            return;
+        }
+
+        if (!user) {
+            lastLoadedUserPlanRef.current = null;
+            setIsPlanLoading(false);
+            return;
+        }
+
+        if (!isInitialized || !userData) {
+            // User is signed in but data isn't ready yet
+            if (lastLoadedUserPlanRef.current !== user.id) {
+                setIsPlanLoading(true);
+            }
+            return;
+        }
+        if (lastLoadedUserPlanRef.current === user.id) {
+            setIsPlanLoading(false);
+            return;
+        }
+
+        // Keep loading state active while we handle onboarding conversion and plan loading
+        setIsPlanLoading(true);
+
+        const handleSignInPlanLoading = async () => {
+            try {
+                // Step 1: Handle onboarding plan conversion first
+                const hasOnboardingPlan = localStorage.getItem('user_plan_v1');
+                if (hasOnboardingPlan && plan && typeof upsertAnonymousPlan === 'function') {
+                    console.log('🔄 Converting onboarding plan to user account...');
+                    try {
+                        // Convert current plan to user's saved plan
+                        const planToSave = addViewRangeToPlan(plan);
+                        await upsertAnonymousPlan(planToSave, `${userData?.first_name || 'My'} Plan from Onboarding`);
+                        console.log('✅ Onboarding plan converted successfully');
+                        
+                        // Clear the localStorage onboarding plan after successful conversion
+                        localStorage.removeItem('user_plan_v1');
+                        localStorage.removeItem('user_plan_locked_v1');
+                    } catch (conversionError) {
+                        console.error('❌ Failed to convert onboarding plan:', conversionError);
+                    }
+                }
+
+                // Step 2: Fetch the latest plans from database (including any just-converted onboarding plan)
+                if (typeof fetchDefaultPlans === 'function') {
+                    console.log('🔄 Refreshing user plans from database...');
+                    await fetchDefaultPlans();
+                }
+
+                // Step 3: Load the most recent saved plan
+                const mostRecentSavedPlan = getMostRecentSavedPlan();
+                if (mostRecentSavedPlan?.plan_data) {
+                    console.log('📥 Loading most recent saved plan after sign-in:', mostRecentSavedPlan.plan_name);
+                    loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
+                } else {
+                    console.log('📝 No saved plans found, keeping current plan');
+                }
+
+            } catch (error) {
+                console.error('❌ Error during sign-in plan loading:', error);
+            } finally {
+                // Mark this user as processed and stop loading
+                lastLoadedUserPlanRef.current = user.id;
+                setIsPlanLoading(false);
+            }
+        };
+
+        handleSignInPlanLoading();
+    }, [user, userData, isInitialized, loadPlanData, getMostRecentSavedPlan, fetchDefaultPlans, upsertAnonymousPlan, plan, addViewRangeToPlan]);
 
     // --- Auto-save plan to localStorage on every change ---
     useEffect(() => {

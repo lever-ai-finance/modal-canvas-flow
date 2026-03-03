@@ -266,7 +266,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             const { data: userPlans, error: userPlansError } = await supabase
                 .from('plans')
-                .select('plan_name')
+                .select('id, plan_name, updated_at')
                 .eq('user_id', targetUserId);
 
             if (userPlansError) {
@@ -286,28 +286,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     baseName = 'Onboarding Plan';
                 }
 
-                let resolvedName = baseName;
-                let suffix = 2;
-                while (existingNames.has(resolvedName)) {
-                    resolvedName = `${baseName} (${suffix})`;
-                    suffix += 1;
+                // Check if plan with this name already exists
+                const existingPlan = userPlans?.find(plan => 
+                    (plan.plan_name || '').trim() === baseName
+                );
+
+                if (existingPlan) {
+                    // Update existing plan instead of creating numbered version
+                    const { error: updateError } = await supabase
+                        .from('plans')
+                        .update({
+                            plan_data: anonymousPlan.plan_data,
+                            plan_image: anonymousPlan.plan_image || null,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('user_id', targetUserId)
+                        .eq('plan_name', baseName);
+
+                    if (updateError) {
+                        console.error('Error updating existing plan during claim:', updateError);
+                        continue;
+                    }
+                } else {
+                    // Create new plan
+                    const { error: insertError } = await supabase
+                        .from('plans')
+                        .insert({
+                            user_id: targetUserId,
+                            plan_name: baseName,
+                            plan_data: anonymousPlan.plan_data,
+                            plan_image: anonymousPlan.plan_image || null,
+                        });
+
+                    if (insertError) {
+                        console.error('Error importing anonymous plan:', insertError);
+                        continue;
+                    }
+
+                    existingNames.add(baseName);
                 }
 
-                const { error: insertError } = await supabase
-                    .from('plans')
-                    .insert({
-                        user_id: targetUserId,
-                        plan_name: resolvedName,
-                        plan_data: anonymousPlan.plan_data,
-                        plan_image: anonymousPlan.plan_image || null,
-                    });
-
-                if (insertError) {
-                    console.error('Error importing anonymous plan:', insertError);
-                    continue;
-                }
-
-                existingNames.add(resolvedName);
                 importedCount += 1;
                 importedAnonymousPlanIds.push(anonymousPlan.id);
             }
@@ -543,16 +561,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 throw selectError;
             }
 
-            // If plan exists, return confirmation required
+            // If plan exists, update it directly
             if (existingPlans && existingPlans.length > 0) {
-                return {
-                    success: false,
-                    requiresConfirmation: true,
-                    existingPlanName: planName
+                const { error: updateError } = await supabase
+                    .from('plans')
+                    .update({
+                        plan_data: plan as any, // Type assertion for JSON compatibility
+                        plan_image: planImage || null,
+                        current_balances: plan.current_balances || null, // Store current day balances as JSONB
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('user_id', user.id)
+                    .eq('plan_name', planName);
+
+                const upsertData = {
+                    anonymous_user_id: getOrCreateAnonId(),
+                    plan_name: planName,
+                    plan_data: plan as any, // Type assertion for JSON compatibility
+                    plan_image: planImage || null,
+                    current_balances: plan.current_balances || null, // Store current day balances as JSONB
                 };
+                const { error: anonymousError } = await supabase
+                    .from('anonymous_plans')
+                    .upsert(
+                        upsertData,
+                        { onConflict: 'anonymous_user_id,plan_name' }
+                    );
+
+                if (updateError) {
+                    console.error('Error updating plan:', updateError);
+                    throw updateError;
+                }
+
+                if (anonymousError) {
+                    console.error('Error updating anonymous plan:', anonymousError);
+                    throw anonymousError;
+                }
+
+                toast.success(`Plan "${planName}" updated successfully!`);
+                return { success: true };
             }
 
-            // No conflict, save the plan
+            // No conflict, save the plan as new
             const { error } = await supabase
                 .from('plans')
                 .insert({

@@ -181,11 +181,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSignIn, mode, 
 
     try {
       console.log('🔄 Google sign in attempt');
-      console.log('🔄 Window location origin:', window.location.origin + '/');
+      console.log('🔄 Redirect URL:', import.meta.env.VITE_REDIRECT_URL);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/',
+          redirectTo: import.meta.env.VITE_REDIRECT_URL,
         },
       });
       if (error) throw error;
