@@ -622,12 +622,12 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
 
       // Store simulation results in the plan
       // Store simulation results while preserving the original plan structure
-      const updatedPlanWithResults = {
-        ...mainPlanAfterUpdates,
-        simulation_results: simulationResult,
-        current_balances: currentDayBalances
-      };
-      updatePlanDirectly(updatedPlanWithResults);
+      // const updatedPlanWithResults = {
+      //   ...mainPlanAfterUpdates,
+      //   // simulation_results: simulationResult, // dont inclue simulation results for now in plan
+      //   current_balances: currentDayBalances
+      // };
+      // updatePlanDirectly(updatedPlanWithResults);
 
       // Run simulation for locked plan if it exists and compare mode is on
       if (plan_locked && isCompareMode) {
@@ -678,11 +678,11 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
           setAllLockedNetWorthData(lockedResult);
 
           // Store simulation results in the locked plan
-          const updatedLockedPlanWithResults = {
-            ...lockedPlanAfterUpdates,
-            simulation_results_locked: lockedResult
-          };
-          updateLockedPlanDirectly(updatedLockedPlanWithResults);
+          // const updatedLockedPlanWithResults = {
+          //   ...lockedPlanAfterUpdates,
+          //   // simulation_results_locked: lockedResult // dont inclue simulation results for now in locked plan
+          // };
+          // updateLockedPlanDirectly(updatedLockedPlanWithResults);
         } catch (err) {
           console.error('Locked plan simulation failed:', err);
           setAllLockedNetWorthData([]);
