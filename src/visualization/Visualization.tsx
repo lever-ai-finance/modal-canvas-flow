@@ -26,7 +26,6 @@ import {
   formatNumber,
   formatDate,
   getIntervalInDays,
-  generateEnvelopeColors,
   Legend,
   findClosestPoint,
   getEnvelopeAndCategoryColors,
@@ -989,15 +988,6 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
               setTimeInterval(newInterval);
             }
           }, [globalZoom]);
-
-
-
-          // Get envelope colors from schema
-          const envelopeColors = useMemo(() => {
-            if (!schema?.categories) return {};
-            //console.log('schema.categories: ', schema.categories);
-            return generateEnvelopeColors(schema.categories);
-          }, [schema]);
 
           const allEventsByDate = getAllEventsByDateWithLocked(plan!, plan_locked, schema || undefined, globalZoom);
           // console.log('📅 Events by Date in Visualization:', {
