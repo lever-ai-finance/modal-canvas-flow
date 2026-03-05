@@ -63,6 +63,7 @@ interface AuthContextType {
     user: User | null;
     userData: UserData | null;
     isLoading: boolean;
+    authInitialized: boolean;
     isPremium: boolean;
     onboarding_state: OnboardingState;
     signIn: (email: string, password: string) => Promise<any>;
@@ -80,7 +81,7 @@ interface AuthContextType {
     logAnonymousButtonClick: (buttonId: string) => Promise<boolean>;
     fetchDefaultPlans: () => Promise<{ plan_name: string | null; plan_data: any; plan_image: string | null }[]>;
     getMostRecentSavedPlan: () => DatabaseRowPlan | null;
-    claimAnonymousPlansToUser: (userId?: string) => Promise<number>;
+    claimAnonymousPlansToUser: (userId?: string) => Promise<{ importedCount: number; mostRecentPlan: DatabaseRowPlan | null }>;
     getOnboardingStateNumber: (state: OnboardingState) => number;
     getOnboardingStateFromNumber: (number: number) => OnboardingState | null;
     updateOnboardingState: (newState: OnboardingState, persist?: boolean) => Promise<void>;
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [authInitialized, setAuthInitialized] = useState(false);
     const [onboarding_state, setOnboardingState] = useState<OnboardingState>('full');
     const claimedAnonymousPlansUserRef = useRef<string | null>(null);
 
@@ -234,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const claimAnonymousPlansToUser = useCallback(async (userIdArg?: string): Promise<number> => {
+    const claimAnonymousPlansToUser = useCallback(async (userIdArg?: string): Promise<{ importedCount: number; mostRecentPlan: DatabaseRowPlan | null }> => {
         // Claims the anonymous plans claimed by this browser to the users account
         const targetUserId = userIdArg || user?.id;
         if (!targetUserId) return 0;
@@ -254,14 +256,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .eq('anonymous_user_id', anonId)
                 .order('updated_at', { ascending: false });
 
+
+            console.log('🚀 Attempting to claim anonymous plans for user:', targetUserId)
+
             if (anonPlansError) {
                 console.error('Error fetching anonymous plans for claim:', anonPlansError);
-                return 0;
+                return { importedCount: 0, mostRecentPlan: null };
             }
 
             if (!anonymousPlans || anonymousPlans.length === 0) {
+                console.log('No anonymous plans to claim for user:', targetUserId);
                 claimedAnonymousPlansUserRef.current = targetUserId;
-                return 0;
+                return { importedCount: 0, mostRecentPlan: null };
             }
 
             const { data: userPlans, error: userPlansError } = await supabase
@@ -271,7 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (userPlansError) {
                 console.error('Error fetching existing user plans for claim:', userPlansError);
-                return 0;
+                return { importedCount: 0, mostRecentPlan: null };
             }
 
             const existingNames = new Set((userPlans || []).map((plan) => (plan.plan_name || '').trim()).filter(Boolean));
@@ -350,13 +356,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (importedCount > 0) {
                 toast.success(importedCount === 1 ? 'Imported your onboarding plan.' : `Imported ${importedCount} onboarding plans.`);
             }
+            console.log(`Claimed ${importedCount} anonymous plans for user ${targetUserId}`);
 
-            return importedCount;
+            // Fetch the updated user plans and return the most recent one
+            const { data: updatedUserPlans, error: fetchError } = await supabase
+                .from('plans')
+                .select('*')
+                .eq('user_id', targetUserId)
+                .order('updated_at', { ascending: false });
+
+            if (fetchError) {
+                console.error('Error fetching updated plans after claim:', fetchError);
+                return { importedCount, mostRecentPlan: null };
+            }
+
+            // Return count and most recent plan
+            return {
+                importedCount,
+                mostRecentPlan: updatedUserPlans?.[0] || null
+            };
         } catch (error) {
             // Reset guard on failure so it can be retried
             claimedAnonymousPlansUserRef.current = null;
             console.error('Error claiming anonymous plans:', error);
-            return 0;
+            return {
+                importedCount: 0,
+                mostRecentPlan: null
+            };
         }
     }, [user?.id]);
 
@@ -413,13 +439,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (session?.user) {
                     setTimeout(async () => {
                         //console.log('🔄 Fetching user data for:', session.user.id);
-                        console.log('Claim Anonymous plans')
-                        await claimAnonymousPlansToUser(session.user.id);
                         await fetchUserData(session.user.id);
+                        // Auth initialization complete for signed-in user
+                        setAuthInitialized(true);
                     }, 0);
                 } else {
                     claimedAnonymousPlansUserRef.current = null;
                     setUserData(null);
+                    // Auth initialization complete for anonymous user
+                    setAuthInitialized(true);
                 }
             }
         );
@@ -428,9 +456,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
             if (session?.user) {
-                fetchUserData(session.user.id);
+                fetchUserData(session.user.id).then(() => {
+                    setAuthInitialized(true);
+                });
+            } else {
+                // No existing session, auth initialization complete
+                setAuthInitialized(true);
             }
         });
+        console.log('AuthProvider initialized, setting up auth state listener...');
 
         return () => subscription.unsubscribe();
     }, []);
@@ -959,6 +993,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         userData,
         isLoading,
+        authInitialized,
         isPremium,
         onboarding_state,
         signIn,

@@ -496,7 +496,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
     const MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
 
     // Get auth context for onboarding state management, persistence, and saved plans
-    const { updateOnboardingState, upsertAnonymousPlan, fetchDefaultPlans, getMostRecentSavedPlan, user, userData } = useAuth();
+    const { updateOnboardingState, upsertAnonymousPlan, fetchDefaultPlans, getMostRecentSavedPlan, user, userData, authInitialized, claimAnonymousPlansToUser } = useAuth();
 
     // Ref to store the setZoomToDateRange function from Visualization
     const setZoomToDateRangeRef = useRef<((startDay: number, endDay: number) => void) | null>(null);
@@ -512,6 +512,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
     // Ref to ensure we only auto-load most recent saved plan once per signed-in user
     const lastLoadedUserPlanRef = useRef<string | null>(null);
+    const claimInProgressRef = useRef<string | null>(null);
 
     // Add to history stack function
     const addToStack = useCallback((planData: Plan) => {
@@ -640,7 +641,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
     // --- Clean startup: check URL parameters, then load from localStorage if available, else load default plan ---
     useEffect(() => {
-        if (isInitialized) return; // Prevent double init
+        if (isInitialized || !authInitialized) return; // Wait for auth to be initialized before starting plan initialization
 
         const tryLoadPlan = async () => {
             try {
@@ -685,6 +686,22 @@ export function PlanProvider({ children }: PlanProviderProps) {
                         console.log('✅ Example plans loaded successfully');
                         return;
                     } else {
+                        // Special case for Financial-Calculator: just load default plan
+                        if (planId === 'Financial-Calculator') {
+                            console.log('💰 Loading default plan for Financial-Calculator example...');
+                            loadPlanData(defaultPlanData, defaultLockedPlanData);
+                            setIsExampleViewing(true);
+                            try {
+                                await updateOnboardingState('full', false);
+                                console.log('✅ Anonymous onboarding set to full for example viewing (non-persistent)');
+                            } catch (e) {
+                                console.warn('Failed to set onboarding state to full (non-persistent):', e);
+                            }
+                            setIsInitialized(true);
+                            console.log('✅ Financial-Calculator example loaded with default plan');
+                            return;
+                        }
+                        
                         console.warn('⚠️ Could not find both regular and locked plans:', {
                             regularPlanFound: !!regularPlan,
                             lockedPlanFound: !!lockedPlan
@@ -726,22 +743,48 @@ export function PlanProvider({ children }: PlanProviderProps) {
                 // Get most recently saved plan from the database for signed-in users
                 if (user) {
                     if (!userData) {
-                        console.log('⏳ Signed-in user detected, waiting for user data before initializing plan');
+                        console.log('⏳ Signed-in user detected, waiting for user data before initializing plan', { 
+                            hasUserData: !!userData
+                        });
                         setIsPlanLoading(true);
                         return;
                     }
 
-                    const mostRecentSavedPlan = getMostRecentSavedPlan();
-                    if (mostRecentSavedPlan?.plan_data) {
-                        console.log('📥 Loading most recent saved plan from user profile:', mostRecentSavedPlan.plan_name);
-                        loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
+                    // Prevent double claiming for the same user
+                    if (claimInProgressRef.current === user.id) {
+                        console.log('⚠️ Claim already in progress for user:', user.id);
+                        return;
+                    }
+
+                    // First claim anonymous plans and get most recent plan directly
+                    console.log('🔄 Claiming anonymous plans and loading most recent plan...');
+                    claimInProgressRef.current = user.id;
+                    
+                    const { importedCount, mostRecentPlan } = await claimAnonymousPlansToUser(user.id);
+                    claimInProgressRef.current = null; // Reset after completion
+                    
+                    if (mostRecentPlan?.plan_data) {
+                        console.log('📥 Loading most recent plan after claim:', mostRecentPlan.plan_name);
+                        loadPlanData(mostRecentPlan.plan_data, mostRecentPlan.plan_data);
                         lastLoadedUserPlanRef.current = user.id;
                         setIsPlanLoading(false);
                         setIsInitialized(true);
                         return;
+                    } else {
+                        // Fallback to getMostRecentSavedPlan if claim didn't return a plan
+                        const fallbackPlan = getMostRecentSavedPlan();
+                        if (fallbackPlan?.plan_data) {
+                            console.log('📥 Loading fallback plan from user profile:', fallbackPlan.plan_name);
+                            loadPlanData(fallbackPlan.plan_data, fallbackPlan.plan_data);
+                            lastLoadedUserPlanRef.current = user.id;
+                            setIsPlanLoading(false);
+                            setIsInitialized(true);
+                            return;
+                        }
                     }
 
                     console.log('ℹ️ Signed-in user has no saved plans, falling back to defaults');
+                    lastLoadedUserPlanRef.current = user.id;
                     setIsPlanLoading(false);
                 }
 
@@ -764,7 +807,7 @@ export function PlanProvider({ children }: PlanProviderProps) {
         };
 
         tryLoadPlan();
-    }, [isInitialized, fetchDefaultPlans, getMostRecentSavedPlan, loadPlanData, user, userData]);
+    }, [isInitialized, authInitialized, user?.id, 1]);
 
     // Effect to handle simulation triggering after plan updates
     useEffect(() => {
@@ -800,133 +843,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
             view_end_date: endDate.toISOString().split('T')[0]
         };
     }, []);
-
-    // Load most recent saved plan after sign-in, but first handle onboarding plan conversion
-    useEffect(() => {
-
-        //Check to see if using Financial-Calculator and if so then dont load plan for signed in user
-        const urlParams = new URLSearchParams(window.location.search);
-        const planId = urlParams.get('plan_id');
-        const isFinancialCalculatorViewing = planId === 'Financial-Calculator';
-
-        if (isFinancialCalculatorViewing) {
-            return;
-        }
-
-        if (!user) {
-            lastLoadedUserPlanRef.current = null;
-            setIsPlanLoading(false);
-            return;
-        }
-
-        if (!isInitialized || !userData) {
-            // User is signed in but data isn't ready yet
-            if (lastLoadedUserPlanRef.current !== user.id) {
-                setIsPlanLoading(true);
-            }
-            return;
-        }
-        if (lastLoadedUserPlanRef.current === user.id) {
-            setIsPlanLoading(false);
-            return;
-        }
-
-        // Keep loading state active while we handle onboarding conversion and plan loading
-        setIsPlanLoading(true);
-
-        const handleSignInPlanLoading = async () => {
-            try {
-                // Step 1: Handle onboarding plan conversion first
-                const hasOnboardingPlan = localStorage.getItem('user_plan_v1');
-                if (hasOnboardingPlan && plan && typeof upsertAnonymousPlan === 'function') {
-                    console.log('🔄 Converting onboarding plan to user account...');
-                    try {
-                        // Convert current plan to user's saved plan
-                        const planToSave = addViewRangeToPlan(plan);
-                        await upsertAnonymousPlan(planToSave, `${userData?.first_name || 'My'} Plan from Onboarding`);
-                        console.log('✅ Onboarding plan converted successfully');
-                        
-                        // Clear the localStorage onboarding plan after successful conversion
-                        localStorage.removeItem('user_plan_v1');
-                        localStorage.removeItem('user_plan_locked_v1');
-                    } catch (conversionError) {
-                        console.error('❌ Failed to convert onboarding plan:', conversionError);
-                    }
-                }
-
-                // Step 2: Fetch the latest plans from database (including any just-converted onboarding plan)
-                if (typeof fetchDefaultPlans === 'function') {
-                    console.log('🔄 Refreshing user plans from database...');
-                    await fetchDefaultPlans();
-                }
-
-                // Step 3: Load the most recent saved plan
-                const mostRecentSavedPlan = getMostRecentSavedPlan();
-                if (mostRecentSavedPlan?.plan_data) {
-                    console.log('📥 Loading most recent saved plan after sign-in:', mostRecentSavedPlan.plan_name);
-                    loadPlanData(mostRecentSavedPlan.plan_data, mostRecentSavedPlan.plan_data);
-                } else {
-                    console.log('📝 No saved plans found, keeping current plan');
-                }
-
-            } catch (error) {
-                console.error('❌ Error during sign-in plan loading:', error);
-            } finally {
-                // Mark this user as processed and stop loading
-                lastLoadedUserPlanRef.current = user.id;
-                setIsPlanLoading(false);
-            }
-        };
-
-        handleSignInPlanLoading();
-    }, [user, userData, isInitialized, loadPlanData, getMostRecentSavedPlan, fetchDefaultPlans, upsertAnonymousPlan, plan, addViewRangeToPlan]);
-
-    // --- Auto-save plan to localStorage on every change ---
-    useEffect(() => {
-        if (!ENABLE_AUTO_PERSIST_PLAN) return;
-        if (!plan) return;
-
-        // If visualization isn't ready, save without view range
-        const planToSave = isVisualizationReady ? addViewRangeToPlan(plan) : plan;
-
-        try {
-            // Always save to localStorage first
-            localStorage.setItem(LOCALSTORAGE_PLAN_KEY, JSON.stringify(planToSave));
-
-            // Optionally sync to database in background, but don't wait for it
-            const anonId = localStorage.getItem('anon_id');
-            if (anonId && typeof upsertAnonymousPlan === 'function') {
-                const planName = planToSave.title || 'Anonymous Plan';
-                // Use setTimeout to ensure this runs after the current execution
-                setTimeout(() => {
-                    upsertAnonymousPlan(planName, planToSave).catch(e => {
-                        console.warn('Failed to sync plan to database:', e);
-                    });
-                }, 0);
-            }
-        } catch (e) {
-            console.warn('Failed to save plan to localStorage:', e);
-        }
-    }, [plan, addViewRangeToPlan, isVisualizationReady]);
-
-    // --- Auto-save plan_locked to localStorage on every change ---
-    useEffect(() => {
-        if (!ENABLE_AUTO_PERSIST_PLAN) return;
-        if (!plan_locked) return;
-        try {
-            localStorage.setItem(LOCALSTORAGE_PLAN_LOCKED_KEY, JSON.stringify(plan_locked));
-        } catch (e) {
-            console.warn('Failed to save locked plan to localStorage:', e);
-        }
-    }, [plan_locked]);
-
-    // Check for onboarding completion and set highest onboarding state
-    useEffect(() => {
-        const hasCompletedOnboarding = Boolean(localStorage.getItem('onboarding-completed'));
-        if (hasCompletedOnboarding) {
-            updateOnboardingState('full');
-        }
-    }, [updateOnboardingState]);
 
     // --- Perform a save when visualization becomes ready (to handle delayed saves) ---
     useEffect(() => {
