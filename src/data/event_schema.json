@@ -933,7 +933,7 @@
                     "parameter_units": "date",
                     "description": "When the final transfer occurs",
                     "default": 3650,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
@@ -942,7 +942,7 @@
                     "parameter_units": "quantity",
                     "description": "Number of times the transfer occurs",
                     "default": 12,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
@@ -951,7 +951,7 @@
                     "parameter_units": "usd",
                     "description": "Total amount of money transferred",
                     "default": 0,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 }
             ],
@@ -1215,15 +1215,15 @@
                     "parameter_units": "date",
                     "description": "When the recurring loan ends",
                     "default": 3650,
-                    "editable": true,
+                    "editable": false,
 "advanced_option": false
                 },
                 {
                     "type": "frequency_days",
                     "display_name": "Frequency (Days)",
                     "parameter_units": "days",
-                    "description": "Number of days between each loan occurrence ",
-                    "default": 365,
+                    "description": "Number of days between each loan payment",
+                    "default": 30,
                     "editable": true,
 "advanced_option": false
                 },
@@ -1231,7 +1231,7 @@
                     "type": "payment",
                     "display_name": "Payment Amount",
                     "parameter_units": "usd",
-                    "description": "Amount of each payment towards the loan",
+                    "description": "Amount of each loan payment",
                     "default": 100,
                     "editable": true,
 "advanced_option": false
@@ -1249,7 +1249,7 @@
                     "type": "from_key",
                     "display_name": "From Account",
                     "parameter_units": "envelope",
-                    "description": "From what account are you paying it from",
+                    "description": "From what account are you paying off the loan",
                     "default": "Other (Debt)",
                     "editable": true,
 "advanced_option": false

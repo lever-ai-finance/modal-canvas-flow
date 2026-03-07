@@ -729,10 +729,9 @@ export default function Index() {
           setAuthModalOpen(true);
           localStorage.setItem('onboarding-modal-done', 'true');
         }}
-        onOpenEnvelope={(env, isAdding) => {
+        onOpenEnvelope={(env) => {
           setEditingEnvelope(env);
           setAddEnvelopeModalOpen(true);
-          setIsAddingEnvelope(!!isAdding);
         }}
         onOpenEvent={(event, isAdding, eventParams) => {
           if (isAdding) {

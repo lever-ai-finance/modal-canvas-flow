@@ -698,6 +698,10 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
     } catch (err) {
       console.error('Simulation failed:', err);
     } finally {
+      if (import.meta.env.DEV) {
+        console.log("Plan after simulation updates:", plan);
+      }
+
       setIsLoading(false);
     }
   }, [plan, plan_locked, schema, timeInterval, currentDay, onNegativeAccountWarning, convertDateParametersToDays, currentVisibleRange]);

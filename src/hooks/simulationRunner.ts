@@ -154,7 +154,7 @@ const applyEventsToDay = (
     day: number,
     eventList: any[],
     envelopes: Record<string, any>,
-    onParameterUpdate?: (update: ParameterUpdate) => void
+    onParameterUpdate: (update: ParameterUpdate) => void
 ) => {
     for (const event of eventList) {
         // check to see if I should even apply the event
@@ -165,28 +165,28 @@ const applyEventsToDay = (
                     applyInflowToDay(day, event, envelopes, onParameterUpdate);
                     break;
                 case "outflow":
-                    applyOutflowToDay(day, event, envelopes);
+                    applyOutflowToDay(day, event, envelopes, onParameterUpdate);
                     break;
                 case "declare_accounts":
-                    declare_accounts(day, event, envelopes);
+                    declare_accounts(day, event, envelopes, onParameterUpdate);
                     break;
                 case "transfer_money":
-                    transfer_money(day, event, envelopes);
+                    transfer_money(day, event, envelopes, onParameterUpdate);
                     break;
                 case "manual_correction":
-                    manual_correction(day, event, envelopes);
+                    manual_correction(day, event, envelopes, onParameterUpdate);
                     break;
                 case "payment_schedule":
-                    payment_schedule(day, event, envelopes);
+                    payment_schedule(day, event, envelopes, onParameterUpdate);
                     break;
                 case "get_job":
-                    get_job(day, event, envelopes);
+                    get_job(day, event, envelopes, onParameterUpdate);
                     break;
                 case "get_wage_job":
-                    get_wage_job(day, event, envelopes);
+                    get_wage_job(day, event, envelopes, onParameterUpdate);
                     break;
                 case "monthly_budgeting":
-                    monthly_budgeting(day, event, envelopes);
+                    monthly_budgeting(day, event, envelopes, onParameterUpdate);
                     break;
                 case "buy_house":
                     buy_house(day, event, envelopes, onParameterUpdate);
@@ -204,7 +204,7 @@ const applyEventsToDay = (
     }
 }
 
-const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate?: (update: ParameterUpdate) => void) => {
+const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.inflowParams;
 
     if (event.updating_events.length > 0) {
@@ -259,7 +259,7 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
     }
 }
 
-const applyOutflowToDay = (day: number, event: any, envelopes: Record<string, any>) => {
+const applyOutflowToDay = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.outflowParams;
 
     //check for updating events
@@ -288,7 +288,7 @@ const applyOutflowToDay = (day: number, event: any, envelopes: Record<string, an
     }
 }
 
-const declare_accounts = (day: number, event: any, envelopes: Record<string, any>) => {
+const declare_accounts = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.declare_accountsParams;
 
     // No updating event logic yet
@@ -312,7 +312,7 @@ const declare_accounts = (day: number, event: any, envelopes: Record<string, any
     }
 }
 
-const transfer_money = (day: number, event: any, envelopes: Record<string, any>) => {
+const transfer_money = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.transfer_moneyParams;
 
     if (event.updating_events.length > 0) {
@@ -340,7 +340,7 @@ const transfer_money = (day: number, event: any, envelopes: Record<string, any>)
     }
 }
 
-const manual_correction = (day: number, event: any, envelopes: Record<string, any>) => {
+const manual_correction = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.manual_correctionParams;
 
     if (params.start_time == day) {
@@ -377,7 +377,7 @@ const calculateInstallmentPayment = (
     return (principal * ratePerPayment) / (1 - Math.pow(1 + ratePerPayment, -totalPayments));
 }
 
-const payment_schedule = (day: number, event: any, envelopes: Record<string, any>) => {
+const payment_schedule = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.payment_scheduleParams;
 
     if (params.start_time == day) {
@@ -385,6 +385,8 @@ const payment_schedule = (day: number, event: any, envelopes: Record<string, any
         envelopes[params.from_key].balance -= params.payment;
         envelopes[params.to_key].balance += params.payment;
         console.log(`Payment Schedule executed on day ${day}: Paid ${params.payment} from ${params.from_key} to ${params.to_key}`);
+        // Set temp params.end time to a large number
+        params.end_time = day + 365 * 1000; // Set to 10 years in the future if not defined
     }
     else if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
@@ -393,6 +395,10 @@ const payment_schedule = (day: number, event: any, envelopes: Record<string, any
                 console.log('blacne, and payment', envelopes[params.to_key].balance, params.payment);
                 envelopes[params.from_key].balance += envelopes[params.to_key].balance;
                 envelopes[params.to_key].balance = 0;
+                
+                //set end time to current day since loan is paid off
+                params.end_time = day;
+                onParameterUpdate({ eventId: event.id, paramType: 'end_time', value: day });
                 return;
             }
             envelopes[params.from_key].balance -= params.payment;
@@ -402,7 +408,7 @@ const payment_schedule = (day: number, event: any, envelopes: Record<string, any
 }
 
 
-const loan = (day: number, event: any, envelopes: Record<string, any>) => {
+const loan = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.loanParams;
 
     if (params.start_time == day) {
@@ -429,33 +435,7 @@ const loan = (day: number, event: any, envelopes: Record<string, any>) => {
     }
 };
 
-const purchase = (day: number, event: any, envelopes: Record<string, any>) => {
-    const params = event.parameters as AllEventTypes.purchaseParams;
-
-    if (params.start_time == day) {
-        envelopes[params.from_key].balance -= params.money;
-    }
-    if (event.is_recurring && day <= params.end_time) {
-        if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
-            envelopes[params.from_key].balance -= params.money;
-        }
-    }
-}
-
-const gift = (day: number, event: any, envelopes: Record<string, any>) => {
-    const params = event.parameters as AllEventTypes.giftParams;
-
-    if (params.start_time == day) {
-        envelopes[params.to_key].balance += params.money;
-    }
-    if (event.is_recurring && day <= params.end_time) {
-        if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
-            envelopes[params.to_key].balance += params.money;
-        }
-    }
-}
-
-const monthly_budgeting = (day: number, event: any, envelopes: Record<string, any>) => {
+const monthly_budgeting = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.monthly_budgetingParams;
 
     if (event.updating_events.length > 0) {
@@ -489,7 +469,7 @@ const monthly_budgeting = (day: number, event: any, envelopes: Record<string, an
     }
 }
 
-const get_job = (day: number, event: any, envelopes: Record<string, any>) => {
+const get_job = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.get_jobParams;
 
     if (event.updating_events.length > 0) {
@@ -560,7 +540,7 @@ const get_job = (day: number, event: any, envelopes: Record<string, any>) => {
     }
 }
 
-const get_wage_job = (day: number, event: any, envelopes: Record<string, any>) => {
+const get_wage_job = (day: number, event: any, envelopes: Record<string, any>, onParameterUpdate: (update: ParameterUpdate) => void) => {
     const params = event.parameters as AllEventTypes.get_wage_jobParams;
 
     if (event.updating_events.length > 0) {
@@ -629,7 +609,7 @@ const buy_car = (
     day: number,
     event: any,
     envelopes: Record<string, any>,
-    onParameterUpdate?: (update: ParameterUpdate) => void
+    onParameterUpdate: (update: ParameterUpdate) => void
 ) => {
     const params = event.parameters as AllEventTypes.buy_carParams;
 
@@ -677,9 +657,7 @@ const buy_car = (
                         if (event._car_loan_state.remaining_principal <= 0) {
                             event._car_loan_state.end_day = day;
                             params.end_time = day;
-                            if (onParameterUpdate && typeof event.id === 'number') {
-                                onParameterUpdate({ eventId: event.id, paramType: 'end_time', value: day });
-                            }
+                            onParameterUpdate({ eventId: event.id, paramType: 'end_time', value: day });
                         }
                     }
                     break;
@@ -736,7 +714,7 @@ const buy_house = (
     day: number,
     event: any,
     envelopes: Record<string, any>,
-    onParameterUpdate?: (update: ParameterUpdate) => void
+    onParameterUpdate: (update: ParameterUpdate) => void
 ) => {
     const params = event.parameters as AllEventTypes.buy_houseParams;
     // Check if any of the envelopes are undefined if so then skip

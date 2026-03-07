@@ -12,6 +12,7 @@ interface EditEnvelopeModalProps {
   isOpen: boolean;
   onClose: () => void;
   envelope?: {
+    envelope_id?: number;
     name: string;
     category: string;
     growth: string;
@@ -73,7 +74,8 @@ const EditEnvelopeModal: React.FC<EditEnvelopeModalProps> = ({ isOpen, onClose, 
       return false;
     }
 
-    const payload: { name: string; category: string; growth: string; rate: number; days_of_usefulness?: number; account_type: string; tax_account_type: string } = {
+    const payload: { envelope_id?: number; name: string; category: string; growth: string; rate: number; days_of_usefulness?: number; account_type: string; tax_account_type: string } = {
+      envelope_id: envelope?.envelope_id,
       name: name.trim(),
       category,
       growth,

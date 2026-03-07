@@ -623,6 +623,10 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                         currentEvent.parameters
                                                             .filter(param => param.type === type)
                                                             .filter(param => shouldDisplayParam(currentEvent as any, param.type, currentParentType))
+                                                            .filter(param => {
+                                                                const schemaParam = getSchemaParamForEvent(currentEvent as any, param.type, currentParentType);
+                                                                return schemaParam?.editable !== false;
+                                                            })
                                                             .map(param => (
                                                                 <div key={param.id} className="space-y-1">
                                                                     <Label htmlFor={param.id.toString()} className="text-sm font-medium">

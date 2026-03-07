@@ -513,10 +513,10 @@ const EventParameterInputs: React.FC<EventParameterInputsProps> = ({
                 { label: 'Daily', value: 1 },
                 { label: 'Weekly', value: 7 },
                 { label: 'Biweekly', value: 14 },
-                { label: 'Monthly', value: 365.25 / 12 },
-                { label: 'Quarterly', value: 365.25 / 4 },
-                { label: 'Semi-annually', value: 365.25 / 2 },
-                { label: 'Yearly', value: 365.25 },
+                { label: 'Monthly', value: 30 },
+                { label: 'Quarterly', value: 91 },
+                { label: 'Semi-annually', value: 182 },
+                { label: 'Yearly', value: 365 },
                 { label: 'Custom', value: 'custom' }
             ];
 

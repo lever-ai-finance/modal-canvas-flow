@@ -24,7 +24,7 @@ interface OnboardingFlowProps {
   onComplete: () => void;
   onAuthRequired?: () => void;
   // Called by onboarding to open the shared EditEnvelopeModal in the parent
-  onOpenEnvelope?: (envelope: Envelope, isAdding?: boolean) => void;
+  onOpenEnvelope?: (envelope: Envelope) => void;
   onOpenEvent?: (event: any | null, isAdding?: boolean, eventParams?: any) => void;
 }
 
@@ -413,7 +413,8 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
     {
       title: "Account Balances",
       content: (
-        <div className="space-y-4">
+        <div className="flex flex-col h-full">
+          {/* Fixed header section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
             <span className="text-sm text-muted-foreground mr-2">Add Account Balance:</span>
             <div className="flex-1">
@@ -423,7 +424,10 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                   setSelectedDefaultEnvelope('');
                   const env = schema?.default_envelopes?.find((d: any) => d.name === val);
                   if (env) {
-                      onOpenEnvelope?.(env, true);
+                      const newEnvelope = addEnvelope(env);
+                      if (newEnvelope) {
+                        onOpenEnvelope?.(newEnvelope);
+                      }
                   }
                 }}
               >
@@ -442,119 +446,117 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
             </div>
           </div>
 
-          {/* List of plan envelopes with balance inputs */}
-          <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
-            <div className="flex-grow overflow-y-auto space-y-4 pr-2">
-              {(plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).map((env: Envelope) => (
-                <Card key={env.name} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-start space-x-4">
+          {/* Scrollable list section */}
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0">
+            {(plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).map((env: Envelope) => (
+              <Card key={env.name} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-start space-x-4">
+                    <div
+                      className="p-2 rounded-lg"
+                      style={{
+                        backgroundColor: (CATEGORY_BASE_COLORS[env.category] || '#E5E7EB') + '22',
+                        border: `2px solid ${CATEGORY_BASE_COLORS[env.category] || '#c7d2fe'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '2rem',
+                        height: '2rem',
+                      }}
+                    >
+                      {(() => {
+                        const map: Record<string, any> = {
+                          'Savings': PiggyBank,
+                          'Investments': TrendingUp,
+                          'Retirement': Shield,
+                          'Debt': CreditCard,
+                          'Cash': Wallet,
+                          'Assets': Building
+                        };
+                        const Icon = map[env.category] || DollarSign;
+                        return <Icon className="w-4 h-4" />;
+                      })()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{env.name}</h3>
+                        {env.tax_account_type && env.tax_account_type !== 'none' && (
+                          <span className="ml-2 text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">
+                            {schema?.tax_account_types?.find((t: any) => t.value === env.tax_account_type)?.name || env.tax_account_type}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-500">{env.category}</span>
+                      </div>
                       <div
-                        className="p-2 rounded-lg"
-                        style={{
-                          backgroundColor: (CATEGORY_BASE_COLORS[env.category] || '#E5E7EB') + '22',
-                          border: `2px solid ${CATEGORY_BASE_COLORS[env.category] || '#c7d2fe'}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '2rem',
-                          height: '2rem',
-                        }}
+                        className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100 cursor-pointer hover:bg-gray-100"
+                        onClick={() => { onOpenEnvelope?.(env); }}
                       >
-                        {(() => {
-                          const map: Record<string, any> = {
-                            'Savings': PiggyBank,
-                            'Investments': TrendingUp,
-                            'Retirement': Shield,
-                            'Debt': CreditCard,
-                            'Cash': Wallet,
-                            'Assets': Building
-                          };
-                          const Icon = map[env.category] || DollarSign;
-                          return <Icon className="w-4 h-4" />;
-                        })()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{env.name}</h3>
-                          {env.tax_account_type && env.tax_account_type !== 'none' && (
-                            <span className="ml-2 text-xs text-yellow-800 bg-yellow-100 px-2 py-0.5 rounded-full">
-                              {schema?.tax_account_types?.find((t: any) => t.value === env.tax_account_type)?.name || env.tax_account_type}
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-500">{env.category}</span>
-                        </div>
-                        <div
-                          className="mt-1 text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 border border-gray-100 cursor-pointer hover:bg-gray-100"
-                          onClick={() => { onOpenEnvelope?.(env, false); }}
-                        >
-                          {env.growth === 'None' ? (
-                            <span className="font-mono">No growth over time</span>
-                          ) : (env.rate !== undefined && env.rate > 0 ? (
-                            <span className="font-mono">{env.growth}: {(env.rate * 100).toFixed(2)}%/yr</span>
-                          ) : null)}
-                        </div>
+                        {env.growth === 'None' ? (
+                          <span className="font-mono">No growth over time</span>
+                        ) : (env.rate !== undefined && env.rate > 0 ? (
+                          <span className="font-mono">{env.growth}: {(env.rate * 100).toFixed(2)}%/yr</span>
+                        ) : null)}
                       </div>
                     </div>
-
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1">
-                        <span className="text-muted-foreground text-sm">$</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={String(accounts[env.name] ?? '')}
-                          onChange={(e) => {
-                            const v = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                            updateAccount(env.name, v);
-                          }}
-                          placeholder="0"
-                          className="w-32 text-right"
-                        />
-                      </div>
-                        <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
-                        onClick={() => { onOpenEnvelope?.(env, false); }}
-                        aria-label="Manage envelope"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-red-600"
-                        onClick={() => { if (env.envelope_id !== undefined) deleteEnvelope(env.envelope_id); }}
-                        aria-label="Delete envelope"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Summary row: total of balances tracked in component */}
-            <div className="border-t border-border/50 pt-4 bg-white mt-3">
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/20 rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-primary" />
                   </div>
-                  <span className="font-semibold text-foreground">Total Value</span>
+
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-1">
+                      <span className="text-muted-foreground text-sm">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={String(accounts[env.name] ?? '')}
+                        onChange={(e) => {
+                          const v = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                          updateAccount(env.name, v);
+                        }}
+                        placeholder="0"
+                        className="w-32 text-right"
+                      />
+                    </div>
+                      <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-blue-500"
+                      onClick={() => { onOpenEnvelope?.(env); }}
+                      aria-label="Manage envelope"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="ml-1 p-1 h-8 w-8 text-gray-400 hover:text-red-600"
+                      onClick={() => { if (env.envelope_id !== undefined) deleteEnvelope(env.envelope_id); }}
+                      aria-label="Delete envelope"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Fixed footer section */}
+          <div className="border-t border-border/50 pt-4 mt-4">
+            <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/20 rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-primary" />
                 </div>
-                <span className="text-lg font-bold text-primary">${(
-                  (plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).reduce((sum, env) => {
-                    const value = accounts[env.name] || 0;
-                    return sum + (env.category === 'Debt' ? -value : value);
-                  }, 0)
-                ).toLocaleString()}</span>
+                <span className="font-semibold text-foreground">Total Value</span>
               </div>
+              <span className="text-lg font-bold text-primary">${(
+                (plan?.envelopes?.filter((env: Envelope) => ['regular'].includes(env.account_type)) || []).reduce((sum, env) => {
+                  const value = accounts[env.name] || 0;
+                  return sum + (env.category === 'Debt' ? -value : value);
+                }, 0)
+              ).toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -590,7 +592,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
           {/* List of plan events inputs */}
           <div className="flex flex-col" style={{ minHeight: '18rem', maxHeight: '28rem' }}>
             <div className="flex-grow overflow-y-auto space-y-4 pr-2">
-              {(plan?.events || []).map((event: Event) => (
+              {(plan?.events.filter((event: Event) => !['declare_accounts'].includes(event.type)) || []).map((event: Event) => (
                 <Card key={event.type} className="p-0 border border-border/30 hover:border-primary/20 transition-all">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-start space-x-4 min-w-0">
@@ -643,20 +645,6 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                   </CardContent>
                 </Card>
               ))}
-              
-              {/* Informative note - always at end of list */}
-              <div className="bg-blue-50/50 border border-blue-200/60 rounded-lg p-3 mt-2">
-                <h3 className="font-medium text-foreground text-sm flex items-center gap-2">
-                  <HelpCircle className="w-4 h-4 text-primary" />
-                  Add your income and expenses to model your financial timeline
-                </h3>
-                <ul className="text-sm text-muted-foreground space-y-2 pl-6">
-                  <li className="list-disc"><span className="font-medium text-foreground">Employment:</span> Add salary or wage jobs to track your regular income</li>
-                  <li className="list-disc"><span className="font-medium text-foreground">Other Income:</span> Include additional income sources like bonuses, side projects, or investments</li>
-                  <li className="list-disc"><span className="font-medium text-foreground">Expenditures:</span> Track your monthly expenses and budgeting categories</li>
-                  <li className="list-disc"><span className="font-medium text-foreground">Loan Payments:</span> Model how your debt payments will be paid off over time</li>
-                </ul>
-              </div>
             </div>
           </div>
         </div>
@@ -719,21 +707,43 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
       {/* Main Onboarding Dialog */}
       <Dialog open={isOpen} onOpenChange={() => { }}>
       <DialogContent className="sm:max-w-2xl max-w-4xl mx-8 max-h-[90vh] flex flex-col">
-        <DialogHeader className="space-y-6">
+        <DialogHeader className="space-y-4">
           <DialogTitle className="text-center text-2xl font-light">
             {currentStepData.title}
           </DialogTitle>
-          <div className="flex justify-center">
-            <div className="flex space-x-3">
-              {Array.from({ length: totalSteps }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${index <= currentStep ? 'bg-[#03c6fc] shadow-lg' : 'bg-muted'
-                    }`}
-                />
-              ))}
+          {/* Account Balances explanation */}
+          {currentStep === 2 && (
+            <div className="bg-blue-50/50 border border-blue-200/60 rounded-lg p-4 mx-2">
+              <h3 className="font-medium text-foreground text-sm flex items-center gap-2 mb-2">
+                <HelpCircle className="w-4 h-4 text-primary" />
+                Tell us about your current financial accounts
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Add your current account balances to create an accurate starting point for your financial timeline. Include savings, checking, investments, retirement accounts, and any debts you have.
+              </p>
+              <p className="text-sm text-muted-foreground font-bold mt-2">
+                Remove demo accounts
+              </p>
             </div>
-          </div>
+          )}
+          {/* Cash Flow explanation */}
+          {currentStep === 3 && (
+            <div className="bg-blue-50/50 border border-blue-200/60 rounded-lg p-4 mx-2">
+              <h3 className="font-medium text-foreground text-sm flex items-center gap-2 mb-2">
+                <HelpCircle className="w-4 h-4 text-primary" />
+                Add your income and expenses to model your financial timeline
+              </h3>
+              <ul className="text-sm text-muted-foreground space-y-1 pl-4">
+                <li className="list-disc"><span className="font-medium text-foreground">Employment:</span> Add salary or wage jobs to track your regular income</li>
+                <li className="list-disc"><span className="font-medium text-foreground">Other Income:</span> Include additional income sources like bonuses, side projects, or investments</li>
+                <li className="list-disc"><span className="font-medium text-foreground">Expenditures:</span> Track your monthly expenses and budgeting categories</li>
+                <li className="list-disc"><span className="font-medium text-foreground">Loan Payments:</span> Model how your debt payments will be paid off over time</li>
+              </ul>
+              <p className="text-sm text-muted-foreground font-bold mt-2">
+                Remove demo events
+              </p>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="py-8 px-2 flex-1 overflow-y-auto">
@@ -763,6 +773,19 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
             </Button>
           </div>
         )}
+
+        {/* Progress dots */}
+        <div className="flex justify-center pb-4">
+          <div className="flex space-x-3">
+            {Array.from({ length: totalSteps }).map((_, index) => (
+              <div
+                key={index}
+                className={`w-3 h-3 rounded-full transition-all duration-300 ${index <= currentStep ? 'bg-[#03c6fc] shadow-lg' : 'bg-muted'
+                  }`}
+              />
+            ))}
+          </div>
+        </div>
 
         <div className="flex justify-between pt-6">
           {currentStep > 0 && (

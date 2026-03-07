@@ -106,9 +106,9 @@ export interface transfer_moneyParams {
   amount: number;
   from_key: string;
   to_key: string;
-  final_transfer: number;
-  number_of_transfers: number;
-  total_transfer: number;
+  final_transfer?: number;
+  number_of_transfers?: number;
+  total_transfer?: number;
 }
 
 export interface transfer_money_update_amountParams {
@@ -160,7 +160,7 @@ export interface payment_scheduleFunctionState extends EventFunctionState {
 
 export interface payment_scheduleParams {
   start_time: number;
-  end_time: number;
+  end_time?: number;
   frequency_days: number;
   payment: number;
   to_key: string;

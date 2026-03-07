@@ -358,7 +358,7 @@ interface PlanContextType {
     deleteEventsByType: (eventType: string) => void; // <-- add this
     //Envelope APIs
     getEnvelopeDisplayName: (envelopeName: string) => string;
-    addEnvelope: (envelope: Envelope) => void;
+    addEnvelope: (envelope: Envelope) => Envelope | null;
     deleteEnvelope: (envelope_id: number) => void;
     updateEnvelope:  (envelope_id: number, updatedFields: Partial<Envelope>) => void;
     captureVisualizationAsSVG: () => string | null; // <-- add this
@@ -1931,12 +1931,12 @@ export function PlanProvider({ children }: PlanProviderProps) {
 
     // Envelope APIS
 
-    const addEnvelope = useCallback((envelope: Envelope) => {
-        if (!plan) return;
+    const addEnvelope = useCallback((envelope: Envelope): Envelope | null => {
+        if (!plan) return null;
         
         //set envelope id to max existing id + 1
         envelope.envelope_id = getNextEnvelopeID(plan);
-        
+        console.log("Adding envelope with ID:", envelope.envelope_id);
         setPlan(prevPlan => {
             if (!prevPlan) return null;
             const updatedEnvelopes = [...prevPlan.envelopes, envelope];
@@ -1946,6 +1946,9 @@ export function PlanProvider({ children }: PlanProviderProps) {
             addToStack(updatedPlan);
             return updatedPlan;
         });
+
+        // Return the envelope with the assigned ID
+        return envelope;
     }, [plan, addToStack]);
 
     const deleteEnvelope = useCallback((envelope_id: number) => {
