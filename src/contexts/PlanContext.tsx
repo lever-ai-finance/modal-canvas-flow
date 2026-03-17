@@ -459,6 +459,16 @@ function getNextEnvelopeID(plan: Plan): number {
     return plan.envelopes.length > 0 ? plan.envelopes.length + 1 : 1;
 }
 
+function getUniqueEnvelopeName(plan: Plan, name: string): string {
+    const existingNames = new Set(plan.envelopes.map(e => e.name));
+    if (!existingNames.has(name)) return name;
+    let counter = 1;
+    while (existingNames.has(`${name} (${counter})`)) {
+        counter++;
+    }
+    return `${name} (${counter})`;
+}
+
 // Helper: deep clone a plan to avoid shared references between `plan` and `plan_locked`
 function deepClonePlan(plan: Plan): Plan {
     return JSON.parse(JSON.stringify(plan));
@@ -1936,6 +1946,8 @@ export function PlanProvider({ children }: PlanProviderProps) {
         
         //set envelope id to max existing id + 1
         envelope.envelope_id = getNextEnvelopeID(plan);
+        //ensure the name is unique by appending (1), (2), etc. if needed
+        envelope.name = getUniqueEnvelopeName(plan, envelope.name);
         console.log("Adding envelope with ID:", envelope.envelope_id);
         setPlan(prevPlan => {
             if (!prevPlan) return null;
