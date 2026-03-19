@@ -811,7 +811,20 @@ const EventParameterInputs: React.FC<EventParameterInputsProps> = ({
         );
     };
 
-    return renderInput(param, event);
+    const inputElement = renderInput(param, event);
+    if (param.is_error) {
+        return (
+            <div>
+                <div className="ring-1 ring-red-400 rounded-md">
+                    {inputElement}
+                </div>
+                {param.error_message && (
+                    <p className="text-xs text-red-400 mt-1 px-1">{param.error_message}</p>
+                )}
+            </div>
+        );
+    }
+    return inputElement;
 };
 
 export default EventParameterInputs; 

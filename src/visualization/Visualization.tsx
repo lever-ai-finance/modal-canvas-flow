@@ -11,6 +11,7 @@ import { curveLinear, curveStepAfter } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { runSimulation } from '../hooks/simulationRunner';
+import type { ParameterUpdate } from '../hooks/simulationRunner';
 import { useInteractionManager } from '../hooks/useInteractionManager';
 import { usePlan, getEnvelopeCategory, getEnvelopeDisplayName, dateStringToDaysSinceBirth, daysSinceBirthToDateString, getEffectiveEventId } from '../contexts/PlanContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -513,6 +514,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
   const runSimulationManually = useCallback(async () => {
     if (!plan || !schema) return;
     console.log('🔍 Running simulation manually');
+
     try {
       setIsLoading(true);
 
@@ -538,8 +540,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
         schema,
         startDate,
         endDate,
-        (updates) => {
-          // Handle parameter updates emitted during simulation
+        (updates: ParameterUpdate[]) => {
+          // Handle parameter updates emitted during simulation (including error flag updates)
           if (updates.length > 0) {
             const updatedPlan = JSON.parse(JSON.stringify(mainPlanAfterUpdates));
             updates.forEach(update => {
@@ -547,16 +549,22 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
               if (event) {
                 const param = event.parameters.find((p: { type: string }) => p.type === update.paramType);
                 if (param) {
-                  const eventSchema = schema.events.find((e: { type: string }) => e.type === event.type);
-                  let paramSchema;
-                  if (eventSchema) {
-                    paramSchema = eventSchema.parameters.find((p: { type: string }) => p.type === param.type);
+                  // Apply value update if present
+                  if (update.value !== undefined) {
+                    const eventSchema = schema.events.find((e: { type: string }) => e.type === event.type);
+                    let paramSchema;
+                    if (eventSchema) {
+                      paramSchema = eventSchema.parameters.find((p: { type: string }) => p.type === param.type);
+                    }
+                    if (paramSchema && paramSchema.parameter_units === 'date') {
+                      param.value = daysSinceBirthToDateString(update.value, plan.birth_date);
+                    } else {
+                      param.value = update.value;
+                    }
                   }
-                  if (paramSchema && paramSchema.parameter_units === 'date') {
-                    param.value = daysSinceBirthToDateString(update.value, plan.birth_date);
-                  } else {
-                    param.value = update.value;
-                  }
+                  // Apply error flag updates if present
+                  if (update.is_error !== undefined) param.is_error = update.is_error;
+                  if (update.error_message !== undefined) param.error_message = update.error_message;
                 }
               }
             });
@@ -646,8 +654,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
             schema,
             startDate,
             endDate,
-            (updates) => {
-              // Handle parameter updates emitted during locked-plan simulation
+            (updates: ParameterUpdate[]) => {
+              // Handle parameter updates emitted during locked-plan simulation (including error flag updates)
               if (updates.length > 0) {
                 const updatedPlan = JSON.parse(JSON.stringify(lockedPlanAfterUpdates));
                 updates.forEach(update => {
@@ -655,16 +663,22 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                   if (event) {
                     const param = event.parameters.find((p: { type: string }) => p.type === update.paramType);
                     if (param) {
-                      const eventSchema = schema.events.find((e: { type: string }) => e.type === event.type);
-                      let paramSchema;
-                      if (eventSchema) {
-                        paramSchema = eventSchema.parameters.find((p: { type: string }) => p.type === param.type);
+                      // Apply value update if present
+                      if (update.value !== undefined) {
+                        const eventSchema = schema.events.find((e: { type: string }) => e.type === event.type);
+                        let paramSchema;
+                        if (eventSchema) {
+                          paramSchema = eventSchema.parameters.find((p: { type: string }) => p.type === param.type);
+                        }
+                        if (paramSchema && paramSchema.parameter_units === 'date') {
+                          param.value = daysSinceBirthToDateString(update.value, plan_locked.birth_date);
+                        } else {
+                          param.value = update.value;
+                        }
                       }
-                      if (paramSchema && paramSchema.parameter_units === 'date') {
-                        param.value = daysSinceBirthToDateString(update.value, plan_locked.birth_date);
-                      } else {
-                        param.value = update.value;
-                      }
+                      // Apply error flag updates if present
+                      if (update.is_error !== undefined) param.is_error = update.is_error;
+                      if (update.error_message !== undefined) param.error_message = update.error_message;
                     }
                   }
                 });
@@ -2116,7 +2130,9 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                               setEventDescriptionTooltip(null);
                             }}
                           >
-                            {useLocked ? (
+                            {(() => {
+                              const eventIsInError = !useLocked && (event as any).parameters?.some((p: any) => p.is_error);
+                              return useLocked ? (
                               <div style={{ width: baseSize, height: baseSize, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
                                 <TimelineAnnotation
                                   icon={getEventIcon(event.type, event)}
@@ -2157,6 +2173,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                                         isRecurring={event.is_recurring}
                                         isEnding={isEndingEvent}
                                         isRecurringInstance={!!isRecurringInstance}
+                                        isError={eventIsInError}
                                       />
                                     </div>
                                   </div>
@@ -2187,7 +2204,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                                   </ContextMenuItem>
                                 </ContextMenuContent>
                               </ContextMenu>
-                            )}
+                            );
+                            })()}
                           </foreignObject>
                         );
                       });
