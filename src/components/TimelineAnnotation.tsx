@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Repeat, X } from 'lucide-react';
+import { User, Repeat, X, AlertCircle } from 'lucide-react';
 
 interface TimelineAnnotationProps {
   onClick?: () => void;
@@ -10,10 +10,20 @@ interface TimelineAnnotationProps {
   isShadowMode?: boolean;
   iconSizePercent?: number; // 100 = full size, 50 = half size, etc.
   isRecurringInstance?: boolean;
+  isError?: boolean; // True when the event has parameter errors
 }
 
-const TimelineAnnotation: React.FC<TimelineAnnotationProps> = ({ onClick, icon, highlighted, isRecurring, isEnding, isShadowMode, iconSizePercent = 100, isRecurringInstance }) => {
+const TimelineAnnotation: React.FC<TimelineAnnotationProps> = ({ onClick, icon, highlighted, isRecurring, isEnding, isShadowMode, iconSizePercent = 100, isRecurringInstance, isError }) => {
   const renderedIcon = React.useMemo(() => {
+    if (isError && !isShadowMode) {
+      const colorClass = 'text-red-500';
+      if (React.isValidElement(icon)) {
+        const existingProps: any = (icon as any).props || {};
+        const existingClass = existingProps.className || '';
+        return React.cloneElement(icon as React.ReactElement, { className: `${existingClass} ${colorClass}`.trim() });
+      }
+      return <User size={20} className={colorClass} />;
+    }
     const colorClass = isShadowMode ? 'text-gray-400' : 'text-black';
     if (React.isValidElement(icon)) {
       const existingProps: any = (icon as any).props || {};
@@ -21,7 +31,7 @@ const TimelineAnnotation: React.FC<TimelineAnnotationProps> = ({ onClick, icon, 
       return React.cloneElement(icon as React.ReactElement, { className: `${existingClass} ${colorClass}`.trim() });
     }
     return <User size={20} className={colorClass} />;
-  }, [icon, isShadowMode]);
+  }, [icon, isShadowMode, isError]);
   return (
     <div
       className={`relative ${isShadowMode ? 'cursor-default' : 'cursor-pointer'}`}
@@ -30,8 +40,8 @@ const TimelineAnnotation: React.FC<TimelineAnnotationProps> = ({ onClick, icon, 
       {/* Main rounded rectangle with icon */}
       <div className={`${isShadowMode
         ? 'bg-transparent shadow-none'
-        : `${highlighted ? 'bg-[#e6f8fd]' : 'bg-white'} shadow-md hover:shadow-lg transition-shadow duration-200`
-        } border-2 ${isRecurringInstance ? 'border-dashed' : 'border-solid'} border-gray-300 rounded-lg p-3 w-12 h-12 flex flex-col items-center justify-center relative`}>
+        : `${highlighted ? 'bg-[#e6f8fd]' : (isError ? 'bg-red-50' : 'bg-white')} shadow-md hover:shadow-lg transition-shadow duration-200`
+        } border-2 ${isRecurringInstance ? 'border-dashed' : 'border-solid'} ${isError && !isShadowMode ? 'border-red-400' : 'border-gray-300'} rounded-lg p-3 w-12 h-12 flex flex-col items-center justify-center relative`}>
         {/* Recurring indicator at the bottom center - only show if not ending and not a generated recurring instance */}
         {isRecurring && !isEnding && !isRecurringInstance && (
           <div className="absolute bottom-1 left-1/2 transform translate-x-2 -translate-y-7 z-0">
@@ -46,6 +56,13 @@ const TimelineAnnotation: React.FC<TimelineAnnotationProps> = ({ onClick, icon, 
           </div>
         )}
 
+        {/* Error indicator badge */}
+        {isError && !isShadowMode && (
+          <div className="absolute -top-1.5 -right-1.5 z-20">
+            <AlertCircle size={12} className="text-red-500 bg-white rounded-full" />
+          </div>
+        )}
+
         {/* Main icon on top layer */}
         <div className="relative z-10">
           {renderedIcon}
@@ -54,7 +71,7 @@ const TimelineAnnotation: React.FC<TimelineAnnotationProps> = ({ onClick, icon, 
 
       {/* Droplet connector */}
       <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-        <div className="w-1 h-1 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-300"></div>
+        <div className={`w-1 h-1 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent ${isError && !isShadowMode ? 'border-t-red-400' : 'border-t-gray-300'}`}></div>
       </div>
     </div>
   );

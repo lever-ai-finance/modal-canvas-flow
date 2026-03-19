@@ -11,6 +11,7 @@ import { curveLinear, curveStepAfter } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { runSimulation } from '../hooks/simulationRunner';
+import type { ParameterError } from '../hooks/simulationRunner';
 import { useInteractionManager } from '../hooks/useInteractionManager';
 import { usePlan, getEnvelopeCategory, getEnvelopeDisplayName, dateStringToDaysSinceBirth, daysSinceBirthToDateString, getEffectiveEventId } from '../contexts/PlanContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -513,6 +514,32 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
   const runSimulationManually = useCallback(async () => {
     if (!plan || !schema) return;
     console.log('🔍 Running simulation manually');
+
+    /** Applies ParameterError updates to a plan object in-place. */
+    const applyParameterErrors = (planObj: any, errors: ParameterError[]) => {
+      // Build a lookup map for O(1) event access
+      const eventMap = new Map<number, any>();
+      planObj.events.forEach((event: any) => eventMap.set(event.id, event));
+      // Clear all existing error flags
+      eventMap.forEach((event) => {
+        event.parameters.forEach((param: any) => {
+          param.is_error = false;
+          param.error_message = '';
+        });
+      });
+      // Apply new errors
+      for (const err of errors) {
+        const event = eventMap.get(err.eventId);
+        if (event) {
+          const param = event.parameters.find((p: any) => p.type === err.paramType);
+          if (param) {
+            param.is_error = err.is_error;
+            param.error_message = err.error_message;
+          }
+        }
+      }
+    };
+
     try {
       setIsLoading(true);
 
@@ -563,6 +590,13 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
             mainPlanAfterUpdates = updatedPlan;
             updatePlanDirectly(updatedPlan);
           }
+        },
+        (errors: ParameterError[]) => {
+          // Apply parameter error flags to the plan so the UI can show error state
+          const updatedPlan = JSON.parse(JSON.stringify(mainPlanAfterUpdates));
+          applyParameterErrors(updatedPlan, errors);
+          mainPlanAfterUpdates = updatedPlan;
+          updatePlanDirectly(updatedPlan);
         },
       );
 
@@ -671,6 +705,13 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                 lockedPlanAfterUpdates = updatedPlan;
                 updateLockedPlanDirectly(updatedPlan);
               }
+            },
+            (errors: ParameterError[]) => {
+              // Apply parameter error flags to the locked plan
+              const updatedPlan = JSON.parse(JSON.stringify(lockedPlanAfterUpdates));
+              applyParameterErrors(updatedPlan, errors);
+              lockedPlanAfterUpdates = updatedPlan;
+              updateLockedPlanDirectly(updatedPlan);
             },
           );
 
@@ -2116,7 +2157,9 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                               setEventDescriptionTooltip(null);
                             }}
                           >
-                            {useLocked ? (
+                            {(() => {
+                              const eventIsInError = !useLocked && (event as any).parameters?.some((p: any) => p.is_error);
+                              return useLocked ? (
                               <div style={{ width: baseSize, height: baseSize, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
                                 <TimelineAnnotation
                                   icon={getEventIcon(event.type, event)}
@@ -2157,6 +2200,7 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                                         isRecurring={event.is_recurring}
                                         isEnding={isEndingEvent}
                                         isRecurringInstance={!!isRecurringInstance}
+                                        isError={eventIsInError}
                                       />
                                     </div>
                                   </div>
@@ -2187,7 +2231,8 @@ export function Visualization({ onAnnotationClick, onAnnotationDelete, onNegativ
                                   </ContextMenuItem>
                                 </ContextMenuContent>
                               </ContextMenu>
-                            )}
+                            );
+                            })()}
                           </foreignObject>
                         );
                       });

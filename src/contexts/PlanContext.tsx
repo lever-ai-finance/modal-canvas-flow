@@ -162,6 +162,8 @@ export interface Parameter {
     id: number;
     type: string;
     value: number | string;
+    is_error?: boolean;
+    error_message?: string;
 }
 
 // New interface for event functions in schema
