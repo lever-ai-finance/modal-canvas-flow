@@ -49,7 +49,7 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
     onOpenEnvelopeModal,
     onAddEnvelope
 }) => {
-    const { plan, schema, getEventIcon, updateParameter, deleteEvent, getParameterDisplayName, getParameterUnits, getEventDisplayType, addUpdatingEvent, getParameterDescription, updateEventDescription, updateEventTitle, canEventBeRecurring, updateEventRecurring, getParameterOptions, getParameterIsEditable, currentDay, getEnvelopeDisplayName, getEventFunctionsParts, updateEventFunctionParts, getEventFunctionPartsState, getEventFunctionPartsIcon, getEventFunctionPartsDescription, getEventDisclaimer, toggleEventVisibility } = usePlan();
+    const { plan, schema, getEventIcon, updateParameter, deleteEvent, getParameterDisplayName, getParameterUnits, getEventDisplayType, addUpdatingEvent, getParameterDescription, updateEventDescription, updateEventTitle, canEventBeRecurring, updateEventRecurring, getParameterOptions, currentDay, getEnvelopeDisplayName, getEventFunctionsParts, updateEventFunctionParts, getEventFunctionPartsState, getEventFunctionPartsIcon, getEventFunctionPartsDescription, getEventDisclaimer, toggleEventVisibility } = usePlan();
     const { isOnboardingAtOrAbove } = useAuth();
 
     // State for local parameter editing (now supports main and updating events)
@@ -485,7 +485,6 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                 handleInputBlur={handleInputBlur}
                 getParameterUnits={getParameterUnits}
                 getParameterOptions={getParameterOptions}
-                getParameterIsEditable={getParameterIsEditable}
                 getEnvelopeDisplayName={getEnvelopeDisplayName}
                 currentDay={currentDay}
                 plan={plan}
@@ -644,7 +643,6 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                                         handleInputBlur={handleInputBlur}
                                                                         getParameterUnits={getParameterUnits}
                                                                         getParameterOptions={getParameterOptions}
-                                                                        getParameterIsEditable={getParameterIsEditable}
                                                                         getEnvelopeDisplayName={getEnvelopeDisplayName}
                                                                         currentDay={currentDay}
                                                                         plan={plan}
@@ -828,7 +826,6 @@ const EventParametersForm: React.FC<EventParametersFormProps> = ({
                                                                             handleInputBlur={handleInputBlur}
                                                                             getParameterUnits={getParameterUnits}
                                                                             getParameterOptions={getParameterOptions}
-                                                                            getParameterIsEditable={getParameterIsEditable}
                                                                             getEnvelopeDisplayName={getEnvelopeDisplayName}
                                                                             currentDay={currentDay}
                                                                             plan={plan}

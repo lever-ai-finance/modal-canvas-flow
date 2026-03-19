@@ -340,7 +340,6 @@ interface PlanContextType {
     getParameterDisplayName: (eventType: string, parameterType: string) => string;
     getParameterUnits: (eventType: string, parameterType: string) => string;
     getParameterDescription: (eventType: string, parameterType: string) => string;
-    getParameterIsEditable: (eventType: string, parameterType: string) => boolean;
     updateEventDescription: (eventId: number, newDescription: string) => void;
     updateEventTitle: (eventId: number, newTitle: string) => void;
     updatePlanTitle: (newTitle: string) => void;
@@ -1572,27 +1571,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
         return parameter?.options || [];
     }, [schema]);
 
-    const getParameterIsEditable = useCallback((eventType: string, parameterType: string): boolean => {
-        if (!schema) return true;
-        // Try main events first
-        let eventSchema = schema.events.find(e => e.type === eventType);
-        let parameter;
-        if (eventSchema) {
-            parameter = eventSchema.parameters.find(p => p.type === parameterType);
-        }
-        // If not found, try updating events
-        if (!parameter) {
-            for (const evt of schema.events) {
-                const updating = evt.updating_events?.find(ue => ue.type === eventType);
-                if (updating) {
-                    parameter = updating.parameters.find(p => p.type === parameterType);
-                    if (parameter) break;
-                }
-            }
-        }
-        return parameter?.editable !== false;
-    }, [schema]);
-
     // Helper to check if the current event can be recurring based on schema
     const canEventBeRecurring = useCallback((eventId: number): boolean => {
         if (!schema || !plan) return false;
@@ -2043,7 +2021,6 @@ export function PlanProvider({ children }: PlanProviderProps) {
         getParameterDisplayName,
         getParameterUnits,
         getParameterDescription,
-        getParameterIsEditable,
         updateEventDescription,
         updateEventTitle,
         updatePlanTitle,
