@@ -46,6 +46,7 @@ interface EventParameterInputsProps {
     handleInputBlur: (paramId: number, value: any, eventId: number) => void;
     getParameterUnits: (eventType: string, paramType: string) => string;
     getParameterOptions: (eventType: string, paramType: string) => string[];
+    getParameterIsEditable: (eventType: string, paramType: string) => boolean;
     getEnvelopeDisplayName: (envelopeName: string) => string;
     currentDay: number;
     plan: any;
@@ -61,6 +62,7 @@ const EventParameterInputs: React.FC<EventParameterInputsProps> = ({
     handleInputBlur,
     getParameterUnits,
     getParameterOptions,
+    getParameterIsEditable,
     getEnvelopeDisplayName,
     currentDay,
     plan,
@@ -95,11 +97,19 @@ const EventParameterInputs: React.FC<EventParameterInputsProps> = ({
         const typeToUse = (event as any).type;
         const paramUnits = getParameterUnits(typeToUse, param.type);
 
-        // For now, we'll assume editable by default since we don't have schema access here
-        const isEditable = true;
+        // Determine editability from schema
+        const isEditable = getParameterIsEditable(typeToUse, param.type);
         const defaultValue = '';
 
         if (paramUnits === 'date') {
+            if (!isEditable) {
+                const formattedDate = value ? String(value) : '—';
+                return (
+                    <div className="w-full p-2 bg-gray-50 border border-gray-200 rounded-md text-sm">
+                        {formattedDate} <span className="ml-2 text-xs text-gray-500">(Calculated)</span>
+                    </div>
+                );
+            }
             return renderDatePicker(param, event);
         }
 
