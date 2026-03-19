@@ -74,6 +74,33 @@ export async function runSimulation(
         day++; //go to next day
     }
 
+    // After simulation completes, emit computed (non-editable) parameters once for each event
+    for (const event of eventList) {
+        switch (event.type) {
+            case 'inflow':
+                if (event._inflowTotal !== undefined) {
+                    pendingParameterUpdates.set(`${event.id}:final_recurring_inflow`, { eventId: event.id, paramType: 'final_recurring_inflow', value: event._lastInflowDay });
+                    pendingParameterUpdates.set(`${event.id}:number_of_recurring_inflows`, { eventId: event.id, paramType: 'number_of_recurring_inflows', value: event._inflowCount });
+                    pendingParameterUpdates.set(`${event.id}:total_inflow`, { eventId: event.id, paramType: 'total_inflow', value: event._inflowTotal });
+                }
+                break;
+            case 'outflow':
+                if (event._outflowTotal !== undefined) {
+                    pendingParameterUpdates.set(`${event.id}:final_recurring_outflow`, { eventId: event.id, paramType: 'final_recurring_outflow', value: event._lastOutflowDay });
+                    pendingParameterUpdates.set(`${event.id}:number_of_recurring_outflows`, { eventId: event.id, paramType: 'number_of_recurring_outflows', value: event._outflowCount });
+                    pendingParameterUpdates.set(`${event.id}:total_outflow`, { eventId: event.id, paramType: 'total_outflow', value: event._outflowTotal });
+                }
+                break;
+            case 'transfer_money':
+                if (event._transferTotal !== undefined) {
+                    pendingParameterUpdates.set(`${event.id}:final_transfer`, { eventId: event.id, paramType: 'final_transfer', value: event._lastTransferDay });
+                    pendingParameterUpdates.set(`${event.id}:number_of_transfers`, { eventId: event.id, paramType: 'number_of_transfers', value: event._transferCount });
+                    pendingParameterUpdates.set(`${event.id}:total_transfer`, { eventId: event.id, paramType: 'total_transfer', value: event._transferTotal });
+                }
+                break;
+        }
+    }
+
     // After simulation update the parameters that were queued for update
     if (onParameterUpdate && pendingParameterUpdates.size > 0) {
         onParameterUpdate(Array.from(pendingParameterUpdates.values()));
@@ -247,14 +274,19 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
             }
         }
     }
+
     if (params.start_time == day) {
         envelopes[params.to_key].balance += params.amount;
-
-        // Set the
+        event._inflowCount = (event._inflowCount || 0) + 1;
+        event._inflowTotal = (event._inflowTotal || 0) + params.amount;
+        event._lastInflowDay = day;
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
             envelopes[params.to_key].balance += params.amount;
+            event._inflowCount = (event._inflowCount || 0) + 1;
+            event._inflowTotal = (event._inflowTotal || 0) + params.amount;
+            event._lastInflowDay = day;
         }
     }
 }
@@ -280,10 +312,16 @@ const applyOutflowToDay = (day: number, event: any, envelopes: Record<string, an
     //event logic
     if (params.start_time == day) {
         envelopes[params.from_key].balance -= params.amount;
+        event._outflowCount = (event._outflowCount || 0) + 1;
+        event._outflowTotal = (event._outflowTotal || 0) + params.amount;
+        event._lastOutflowDay = day;
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
             envelopes[params.from_key].balance -= params.amount;
+            event._outflowCount = (event._outflowCount || 0) + 1;
+            event._outflowTotal = (event._outflowTotal || 0) + params.amount;
+            event._lastOutflowDay = day;
         }
     }
 }
@@ -328,14 +366,21 @@ const transfer_money = (day: number, event: any, envelopes: Record<string, any>,
             }
         }
     }
+
     if (params.start_time == day) {
         envelopes[params.from_key].balance -= params.amount;
         envelopes[params.to_key].balance += params.amount;
+        event._transferCount = (event._transferCount || 0) + 1;
+        event._transferTotal = (event._transferTotal || 0) + params.amount;
+        event._lastTransferDay = day;
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
             envelopes[params.from_key].balance -= params.amount;
             envelopes[params.to_key].balance += params.amount;
+            event._transferCount = (event._transferCount || 0) + 1;
+            event._transferTotal = (event._transferTotal || 0) + params.amount;
+            event._lastTransferDay = day;
         }
     }
 }
