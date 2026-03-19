@@ -722,7 +722,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                 Add your current account balances to create an accurate starting point for your financial timeline. Include savings, checking, investments, retirement accounts, and any debts you have.
               </p>
               <p className="text-sm text-muted-foreground font-bold mt-2">
-                Remove demo accounts
+                Remove demo accounts ( make it your own accounts! )
               </p>
             </div>
           )}
@@ -740,7 +740,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ isOpen, onComplete, onA
                 <li className="list-disc"><span className="font-medium text-foreground">Loan Payments:</span> Model how your debt payments will be paid off over time</li>
               </ul>
               <p className="text-sm text-muted-foreground font-bold mt-2">
-                Remove demo events
+                Remove demo events ( make it your own accounts! )
               </p>
             </div>
           )}

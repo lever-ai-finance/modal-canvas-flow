@@ -1,57 +1,641 @@
 {
-  "title": "Financial Timeline",
-  "birth_date": "2000-01-01",
-  "inflation_rate": 0.024,
-  "adjust_for_inflation": false,
-  "retirement_goal": 0,
-  "view_start_date": "2026-01-01",
-  "view_end_date": "2035-12-31",
+  "title": "Onboarding Plan",
+  "events": [
+    {
+      "id": 1,
+      "hide": false,
+      "type": "declare_accounts",
+      "title": "Initial Account Balances",
+      "parameters": [
+        {
+          "id": 0,
+          "type": "start_time",
+          "value": "2026-03-17"
+        },
+        {
+          "id": 1,
+          "type": "amount1",
+          "value": 3300
+        },
+        {
+          "id": 2,
+          "type": "account1",
+          "value": "Checking Account (Demo Account)"
+        },
+        {
+          "id": 3,
+          "type": "amount2",
+          "value": 5200
+        },
+        {
+          "id": 4,
+          "type": "account2",
+          "value": "Savings Account (Demo Account)"
+        },
+        {
+          "id": 5,
+          "type": "amount3",
+          "value": -22000
+        },
+        {
+          "id": 6,
+          "type": "account3",
+          "value": "College Loan (Demo Account)"
+        },
+        {
+          "id": 7,
+          "type": "amount4",
+          "value": 10000
+        },
+        {
+          "id": 8,
+          "type": "account4",
+          "value": "Roth IRA (Demo Account)"
+        },
+        {
+          "id": 9,
+          "type": "amount5",
+          "value": 0
+        },
+        {
+          "id": 10,
+          "type": "account5",
+          "value": "Other (Debt)"
+        }
+      ],
+      "description": "Declare the initial balances of up to five financial accounts at a specific time.",
+      "is_recurring": false,
+      "event_functions": [
+        {
+          "type": "alter_account_balance",
+          "title": "Enforce Account Balance",
+          "enabled": true
+        }
+      ],
+      "updating_events": []
+    },
+    {
+      "id": 2,
+      "hide": false,
+      "type": "get_wage_job",
+      "title": "Internship (Demo Event)",
+      "parameters": [
+        {
+          "id": 0,
+          "type": "start_time",
+          "value": "2026-03-17"
+        },
+        {
+          "id": 1,
+          "type": "end_time",
+          "value": "2027-09-10"
+        },
+        {
+          "id": 2,
+          "type": "frequency_days",
+          "value": 14
+        },
+        {
+          "id": 3,
+          "type": "hourly_wage",
+          "value": 25
+        },
+        {
+          "id": 4,
+          "type": "hours_per_week",
+          "value": 20
+        },
+        {
+          "id": 5,
+          "type": "pay_period",
+          "value": 26
+        },
+        {
+          "id": 6,
+          "type": "federal_income_tax",
+          "value": 0.12
+        },
+        {
+          "id": 7,
+          "type": "state_income_tax",
+          "value": 0.05
+        },
+        {
+          "id": 8,
+          "type": "social_security_tax",
+          "value": 0.062
+        },
+        {
+          "id": 9,
+          "type": "medicare_tax",
+          "value": 0.014499999999999999
+        },
+        {
+          "id": 10,
+          "type": "p_401k_contribution",
+          "value": 0.04
+        },
+        {
+          "id": 11,
+          "type": "employer_match",
+          "value": 0.04
+        },
+        {
+          "id": 12,
+          "type": "to_key",
+          "value": "Checking Account (Demo Account)"
+        },
+        {
+          "id": 13,
+          "type": "p_401k_key",
+          "value": "401K Account (Demo Account)"
+        },
+        {
+          "id": 14,
+          "type": "taxable_income_key",
+          "value": "Taxable Income"
+        },
+        {
+          "id": 15,
+          "type": "federal_withholdings_key",
+          "value": "Federal Withholdings"
+        },
+        {
+          "id": 16,
+          "type": "state_withholdings_key",
+          "value": "State Withholdings"
+        },
+        {
+          "id": 17,
+          "type": "local_withholdings_key",
+          "value": "Local Withholdings"
+        }
+      ],
+      "description": "Got an internship working 20hrs a week",
+      "is_recurring": true,
+      "event_functions": [
+        {
+          "type": "inflow",
+          "title": "Pay Day",
+          "enabled": true
+        },
+        {
+          "type": "tax_withholdings",
+          "title": "Tax Withholdings",
+          "enabled": true
+        },
+        {
+          "type": "p_401k_contribution",
+          "title": "401k Contribution",
+          "enabled": true
+        },
+        {
+          "type": "salary_in_taxable_income",
+          "title": "Include in Taxable Income",
+          "enabled": true
+        }
+      ],
+      "updating_events": []
+    },
+    {
+      "id": 3,
+      "hide": false,
+      "type": "monthly_budgeting",
+      "title": "Pay Monthly Expenses (Demo Event)",
+      "parameters": [
+        {
+          "id": 0,
+          "type": "start_time",
+          "value": "2026-03-17"
+        },
+        {
+          "id": 1,
+          "type": "end_time",
+          "value": "2066-09-10"
+        },
+        {
+          "id": 2,
+          "type": "frequency_days",
+          "value": 30
+        },
+        {
+          "id": 3,
+          "type": "from_key",
+          "value": "Checking Account (Demo Account)"
+        },
+        {
+          "id": 4,
+          "type": "groceries",
+          "value": 600
+        },
+        {
+          "id": 5,
+          "type": "utilities",
+          "value": 200
+        },
+        {
+          "id": 6,
+          "type": "rent",
+          "value": 1200
+        },
+        {
+          "id": 7,
+          "type": "transportation",
+          "value": 300
+        },
+        {
+          "id": 8,
+          "type": "insurance",
+          "value": 250
+        },
+        {
+          "id": 9,
+          "type": "healthcare",
+          "value": 100
+        },
+        {
+          "id": 10,
+          "type": "dining_out",
+          "value": 200
+        },
+        {
+          "id": 11,
+          "type": "entertainment",
+          "value": 100
+        },
+        {
+          "id": 12,
+          "type": "personal_care",
+          "value": 75
+        },
+        {
+          "id": 13,
+          "type": "miscellaneous",
+          "value": 100
+        }
+      ],
+      "description": "Set your typical monthly budget for common expense categories.",
+      "is_recurring": true,
+      "event_functions": [
+        {
+          "type": "update_budget_with_inflation",
+          "title": "Update Budget with Inflation",
+          "enabled": true
+        },
+        {
+          "type": "outflow_groceries",
+          "title": "Outflow Groceries",
+          "enabled": true
+        },
+        {
+          "type": "outflow_utilities",
+          "title": "Outflow Utilities",
+          "enabled": true
+        },
+        {
+          "type": "outflow_rent",
+          "title": "Outflow Rent",
+          "enabled": true
+        },
+        {
+          "type": "outflow_transportation",
+          "title": "Outflow Transportation",
+          "enabled": true
+        },
+        {
+          "type": "outflow_insurance",
+          "title": "Outflow Insurance",
+          "enabled": true
+        },
+        {
+          "type": "outflow_healthcare",
+          "title": "Outflow Healthcare",
+          "enabled": true
+        },
+        {
+          "type": "outflow_dining_out",
+          "title": "Outflow Dining Out",
+          "enabled": true
+        },
+        {
+          "type": "outflow_entertainment",
+          "title": "Outflow Entertainment",
+          "enabled": true
+        },
+        {
+          "type": "outflow_personal_care",
+          "title": "Outflow Personal Care",
+          "enabled": true
+        },
+        {
+          "type": "outflow_miscellaneous",
+          "title": "Outflow Miscellaneous",
+          "enabled": true
+        }
+      ],
+      "updating_events": []
+    },
+    {
+      "id": 4,
+      "hide": false,
+      "type": "get_job",
+      "title": "First Job (Demo Event)",
+      "parameters": [
+        {
+          "id": 0,
+          "type": "start_time",
+          "value": "2026-03-17"
+        },
+        {
+          "id": 1,
+          "type": "end_time",
+          "value": "2066-03-06"
+        },
+        {
+          "id": 2,
+          "type": "salary",
+          "value": 74000
+        },
+        {
+          "id": 3,
+          "type": "pay_period",
+          "value": 26
+        },
+        {
+          "id": 4,
+          "type": "federal_income_tax",
+          "value": 0.12
+        },
+        {
+          "id": 5,
+          "type": "state_income_tax",
+          "value": 0.05
+        },
+        {
+          "id": 6,
+          "type": "local_income_tax",
+          "value": 0.01
+        },
+        {
+          "id": 7,
+          "type": "social_security_tax",
+          "value": 0.062
+        },
+        {
+          "id": 8,
+          "type": "medicare_tax",
+          "value": 0.014499999999999999
+        },
+        {
+          "id": 9,
+          "type": "p_401k_contribution",
+          "value": 0.05
+        },
+        {
+          "id": 10,
+          "type": "p_401k_match",
+          "value": 0.05
+        },
+        {
+          "id": 11,
+          "type": "to_key",
+          "value": "Checking Account (Demo Account)"
+        },
+        {
+          "id": 12,
+          "type": "p_401k_key",
+          "value": "401K Account (Demo Account)"
+        },
+        {
+          "id": 13,
+          "type": "taxable_income_key",
+          "value": "Taxable Income"
+        },
+        {
+          "id": 14,
+          "type": "federal_withholdings_key",
+          "value": "Federal Withholdings"
+        },
+        {
+          "id": 15,
+          "type": "state_withholdings_key",
+          "value": "State Withholdings"
+        },
+        {
+          "id": 16,
+          "type": "local_withholdings_key",
+          "value": "Local Withholdings"
+        }
+      ],
+      "description": "Start earning a salary from employment.",
+      "is_recurring": true,
+      "event_functions": [
+        {
+          "type": "inflow",
+          "title": "Pay Day",
+          "enabled": true
+        },
+        {
+          "type": "tax_withholdings",
+          "title": "Tax Withholdings",
+          "enabled": true
+        },
+        {
+          "type": "p_401k_contribution",
+          "title": "401k Contribution",
+          "enabled": true
+        },
+        {
+          "type": "salary_in_taxable_income",
+          "title": "Salary in Taxable Income",
+          "enabled": true
+        }
+      ],
+      "updating_events": [
+        {
+          "id": 5,
+          "hide": false,
+          "type": "reoccurring_raise",
+          "title": "Get a yearly raise",
+          "parameters": [
+            {
+              "id": 0,
+              "type": "start_time",
+              "value": "2027-03-17"
+            },
+            {
+              "id": 1,
+              "type": "frequency_days",
+              "value": 365
+            },
+            {
+              "id": 2,
+              "type": "end_time",
+              "value": "2036-03-14"
+            },
+            {
+              "id": 3,
+              "type": "salary_increase",
+              "value": 2000
+            }
+          ],
+          "description": "Receive a recurring raise",
+          "is_recurring": true,
+          "event_functions": []
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "hide": false,
+      "type": "payment_schedule",
+      "title": "Pay off student Loan (Demo Event)",
+      "parameters": [
+        {
+          "id": 0,
+          "type": "start_time",
+          "value": "2026-03-17"
+        },
+        {
+          "id": 1,
+          "type": "end_time",
+          "value": "2026-12-11"
+        },
+        {
+          "id": 2,
+          "type": "frequency_days",
+          "value": 30
+        },
+        {
+          "id": 3,
+          "type": "payment",
+          "value": 2400
+        },
+        {
+          "id": 4,
+          "type": "to_key",
+          "value": "College Loan (Demo Account)"
+        },
+        {
+          "id": 5,
+          "type": "from_key",
+          "value": "Checking Account (Demo Account)"
+        }
+      ],
+      "description": "Pay off a loan with reocurring payments.",
+      "is_recurring": true,
+      "event_functions": [
+        {
+          "type": "pay_off_loan",
+          "title": "Pay Off Loan",
+          "enabled": true
+        },
+        {
+          "type": "debt_payments",
+          "title": "Debt Payments",
+          "enabled": true
+        },
+        {
+          "type": "deposit_debt",
+          "title": "Deposit Debt",
+          "enabled": true
+        },
+        {
+          "type": "final_payment_correction",
+          "title": "Final Payment Correction",
+          "enabled": true
+        }
+      ],
+      "updating_events": []
+    }
+  ],
   "envelopes": [
     {
-      "envelope_id": 1,
-      "name": "Cash",
-      "category": "Cash",
-      "growth": "None",
+      "name": "Taxable Income",
       "rate": 0,
+      "growth": "None",
+      "category": "Tax",
+      "envelope_id": 2,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "name": "Federal Withholdings",
+      "rate": 0,
+      "growth": "None",
+      "category": "Tax",
+      "envelope_id": 3,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "name": "State Withholdings",
+      "rate": 0,
+      "growth": "None",
+      "category": "Tax",
+      "envelope_id": 4,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "name": "Local Withholdings",
+      "rate": 0,
+      "growth": "None",
+      "category": "Tax",
+      "envelope_id": 5,
+      "account_type": "non-networth-account",
+      "tax_account_type": "none"
+    },
+    {
+      "name": "Checking Account (Demo Account)",
+      "rate": 0,
+      "growth": "None",
+      "category": "Cash",
+      "envelope_id": 5,
       "account_type": "regular",
       "tax_account_type": "none"
     },
     {
-      "envelope_id": 2,
-      "name": "Taxable Income",
-      "category": "Tax",
-      "growth": "None",
-      "rate": 0,
-      "account_type": "non-networth-account",
+      "name": "Savings Account (Demo Account)",
+      "rate": 0.02,
+      "growth": "Daily Compound",
+      "category": "Savings",
+      "envelope_id": 6,
+      "account_type": "regular",
       "tax_account_type": "none"
     },
     {
-      "envelope_id": 3,
-      "name": "Federal Withholdings",
-      "category": "Tax",
-      "growth": "None",
-      "rate": 0,
-      "account_type": "non-networth-account",
+      "name": "College Loan (Demo Account)",
+      "rate": 0.065,
+      "growth": "Monthly Compound",
+      "category": "Debt",
+      "envelope_id": 7,
+      "account_type": "regular",
       "tax_account_type": "none"
     },
     {
-      "envelope_id": 4,
-      "name": "State Withholdings",
-      "category": "Tax",
-      "growth": "None",
-      "rate": 0,
-      "account_type": "non-networth-account",
-      "tax_account_type": "none"
+      "name": "Roth IRA (Demo Account)",
+      "rate": 0.07,
+      "growth": "Yearly Compound",
+      "category": "Retirement",
+      "envelope_id": 8,
+      "account_type": "regular",
+      "tax_account_type": "usa_rothira"
     },
     {
-      "envelope_id": 5,
-      "name": "Local Withholdings",
-      "category": "Tax",
-      "growth": "None",
+      "name": "401K Account (Demo Account)",
       "rate": 0,
-      "account_type": "non-networth-account",
-      "tax_account_type": "none"
+      "growth": "Monthly Compound",
+      "category": "Retirement",
+      "envelope_id": 9,
+      "account_type": "regular",
+      "tax_account_type": "usa_401k"
     }
   ],
-  "events": []
+  "birth_date": "2000-01-01",
+  "view_end_date": "2081-08-21",
+  "inflation_rate": 0.024,
+  "retirement_goal": 0,
+  "view_start_date": "2005-01-08",
+  "adjust_for_inflation": false
 }
