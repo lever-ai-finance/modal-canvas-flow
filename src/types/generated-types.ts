@@ -721,6 +721,70 @@ export interface usa_tax_systemParams {
   location: string;
 }
 
+export type rent_paymentFunctionTypes = "outflow";
+
+export interface rent_paymentFunctionState extends EventFunctionState {
+  "outflow"?: boolean;
+}
+
+export interface rent_paymentParams {
+  start_time: number;
+  end_time: number;
+  monthly_amount: number;
+  from_key: string;
+}
+
+export type freelance_incomeFunctionTypes = "inflow";
+
+export interface freelance_incomeFunctionState extends EventFunctionState {
+  "inflow"?: boolean;
+}
+
+export interface freelance_incomeParams {
+  start_time: number;
+  end_time: number;
+  frequency_days: number;
+  amount: number;
+  to_key: string;
+}
+
+export type windfallFunctionTypes = "inflow";
+
+export interface windfallFunctionState extends EventFunctionState {
+  "inflow"?: boolean;
+}
+
+export interface windfallParams {
+  start_time: number;
+  amount: number;
+  to_key: string;
+}
+
+export type moving_costsFunctionTypes = "outflow";
+
+export interface moving_costsFunctionState extends EventFunctionState {
+  "outflow"?: boolean;
+}
+
+export interface moving_costsParams {
+  start_time: number;
+  amount: number;
+  from_key: string;
+}
+
+export type career_breakFunctionTypes = "outflow";
+
+export interface career_breakFunctionState extends EventFunctionState {
+  "outflow"?: boolean;
+}
+
+export interface career_breakParams {
+  start_time: number;
+  end_time: number;
+  monthly_expenses: number;
+  from_key: string;
+}
+
 // Helper function to convert event.parameters to typed objects
 export function getTypedParams<T extends Record<string, any>>(event: any): T {
   // Handle case where parameters might already be an object (converted by parseEvents)
