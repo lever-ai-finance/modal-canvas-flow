@@ -3,44 +3,50 @@ import type { Datum } from '../visualization/viz_utils';
 import { validateProblem, extractSchema, parseEvents } from './schemaChecker';
 import type * as AllEventTypes from '../types/generated-types';
 
-type ParameterUpdate = { eventId: number, paramType: string, value: number };
-
-export type ParameterError = {
+export type ParameterUpdate = {
     eventId: number;
     paramType: string;
-    is_error: boolean;
-    error_message: string;
+    value?: number;
+    is_error?: boolean;
+    error_message?: string;
 };
 
 /**
- * Checks a single parsed event for parameter errors.
- * Currently validates that all envelope-type parameters are not blank.
- * Located close to the event functions so error logic stays near the simulation logic.
+ * Validates all envelope-type parameters for a parsed event.
+ * Queues updates (via queueParameterUpdate) for every envelope param — setting
+ * is_error/error_message when blank, or clearing them when valid.
+ * Returns the set of event IDs that have at least one errored parameter.
+ * Kept close to the event handler functions so error logic stays near simulation logic.
  */
-function checkEventParameterErrors(
-    event: { id: number; type: string; parameters: Record<string, any> },
-    schemaMap: Record<string, any>
-): ParameterError[] {
-    const errors: ParameterError[] = [];
-    const eventSchema = schemaMap[event.type];
-    if (!eventSchema) return errors;
+function validateEventParameterErrors(
+    eventList: Array<{ id: number; type: string; parameters: Record<string, any> }>,
+    schemaMap: Record<string, any>,
+    queueParameterUpdate: (update: ParameterUpdate) => void
+): Set<number> {
+    const erroredEventIds = new Set<number>();
 
-    for (const schemaParam of eventSchema.params) {
-        if (schemaParam.parameter_units === 'envelope') {
-            const value = event.parameters[schemaParam.type];
-            const isBlank = !value || (typeof value === 'string' && value.trim() === '');
-            if (isBlank) {
-                errors.push({
+    for (const event of eventList) {
+        const eventSchema = schemaMap[event.type];
+        if (!eventSchema) continue;
+
+        for (const schemaParam of eventSchema.params) {
+            if (schemaParam.parameter_units === 'envelope') {
+                const value = event.parameters[schemaParam.type];
+                const isBlank = !value || (typeof value === 'string' && value.trim() === '');
+                queueParameterUpdate({
                     eventId: event.id,
                     paramType: schemaParam.type,
-                    is_error: true,
-                    error_message: 'An envelope selection is required',
+                    is_error: isBlank,
+                    error_message: isBlank ? 'An envelope selection is required' : '',
                 });
+                if (isBlank) {
+                    erroredEventIds.add(event.id);
+                }
             }
         }
     }
 
-    return errors;
+    return erroredEventIds;
 }
 
 export async function runSimulation(
@@ -48,8 +54,7 @@ export async function runSimulation(
     schema: Schema,
     startDate: number,
     endDate: number,
-    onParameterUpdate?: (updates: ParameterUpdate[]) => void,
-    onParameterError?: (errors: ParameterError[]) => void
+    onParameterUpdate?: (updates: ParameterUpdate[]) => void
 ): Promise<Datum[]> {
 
     const schemaMap = extractSchema(schema);
@@ -85,22 +90,11 @@ export async function runSimulation(
 
     const eventList = parseEvents(plan);
 
-    // Validate all events for parameter errors before running the simulation.
-    // Events with errors are skipped during simulation but the simulation continues.
-    const allParamErrors: ParameterError[] = [];
-    const erroredEventIds = new Set<number>();
-
-    for (const event of eventList) {
-        const errors = checkEventParameterErrors(event, schemaMap);
-        for (const err of errors) {
-            allParamErrors.push(err);
-            erroredEventIds.add(event.id);
-        }
-    }
-
-    if (onParameterError) {
-        onParameterError(allParamErrors);
-    }
+    // Validate all events for parameter errors before running the simulation loop.
+    // Errors are queued as ParameterUpdates (same mechanism as value updates) so they
+    // flow through the same onParameterUpdate callback. Events with errors are skipped
+    // during simulation but the simulation continues for all other events.
+    const erroredEventIds = validateEventParameterErrors(eventList, schemaMap, queueParameterUpdate);
 
     while (day <= endDate) {
 
