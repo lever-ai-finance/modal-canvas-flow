@@ -248,23 +248,22 @@ const applyInflowToDay = (day: number, event: any, envelopes: Record<string, any
         }
     }
 
-    // Helper to track and queue non-editable computed parameters after each occurrence
-    const trackInflowOccurrence = (amount: number) => {
+    if (params.start_time == day) {
+        envelopes[params.to_key].balance += params.amount;
         event._inflowCount = (event._inflowCount || 0) + 1;
-        event._inflowTotal = (event._inflowTotal || 0) + amount;
+        event._inflowTotal = (event._inflowTotal || 0) + params.amount;
         onParameterUpdate({ eventId: event.id, paramType: 'final_recurring_inflow', value: day });
         onParameterUpdate({ eventId: event.id, paramType: 'number_of_recurring_inflows', value: event._inflowCount });
         onParameterUpdate({ eventId: event.id, paramType: 'total_inflow', value: event._inflowTotal });
-    };
-
-    if (params.start_time == day) {
-        envelopes[params.to_key].balance += params.amount;
-        trackInflowOccurrence(params.amount);
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
             envelopes[params.to_key].balance += params.amount;
-            trackInflowOccurrence(params.amount);
+            event._inflowCount = (event._inflowCount || 0) + 1;
+            event._inflowTotal = (event._inflowTotal || 0) + params.amount;
+            onParameterUpdate({ eventId: event.id, paramType: 'final_recurring_inflow', value: day });
+            onParameterUpdate({ eventId: event.id, paramType: 'number_of_recurring_inflows', value: event._inflowCount });
+            onParameterUpdate({ eventId: event.id, paramType: 'total_inflow', value: event._inflowTotal });
         }
     }
 }
@@ -287,24 +286,23 @@ const applyOutflowToDay = (day: number, event: any, envelopes: Record<string, an
         }
     }
 
-    // Helper to track and queue non-editable computed parameters after each occurrence
-    const trackOutflowOccurrence = (amount: number) => {
-        event._outflowCount = (event._outflowCount || 0) + 1;
-        event._outflowTotal = (event._outflowTotal || 0) + amount;
-        onParameterUpdate({ eventId: event.id, paramType: 'final_recurring_outflow', value: day });
-        onParameterUpdate({ eventId: event.id, paramType: 'number_of_recurring_outflows', value: event._outflowCount });
-        onParameterUpdate({ eventId: event.id, paramType: 'total_outflow', value: event._outflowTotal });
-    };
-
     //event logic
     if (params.start_time == day) {
         envelopes[params.from_key].balance -= params.amount;
-        trackOutflowOccurrence(params.amount);
+        event._outflowCount = (event._outflowCount || 0) + 1;
+        event._outflowTotal = (event._outflowTotal || 0) + params.amount;
+        onParameterUpdate({ eventId: event.id, paramType: 'final_recurring_outflow', value: day });
+        onParameterUpdate({ eventId: event.id, paramType: 'number_of_recurring_outflows', value: event._outflowCount });
+        onParameterUpdate({ eventId: event.id, paramType: 'total_outflow', value: event._outflowTotal });
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
             envelopes[params.from_key].balance -= params.amount;
-            trackOutflowOccurrence(params.amount);
+            event._outflowCount = (event._outflowCount || 0) + 1;
+            event._outflowTotal = (event._outflowTotal || 0) + params.amount;
+            onParameterUpdate({ eventId: event.id, paramType: 'final_recurring_outflow', value: day });
+            onParameterUpdate({ eventId: event.id, paramType: 'number_of_recurring_outflows', value: event._outflowCount });
+            onParameterUpdate({ eventId: event.id, paramType: 'total_outflow', value: event._outflowTotal });
         }
     }
 }
@@ -350,25 +348,24 @@ const transfer_money = (day: number, event: any, envelopes: Record<string, any>,
         }
     }
 
-    // Helper to track and queue non-editable computed parameters after each occurrence
-    const trackTransferOccurrence = (amount: number) => {
-        event._transferCount = (event._transferCount || 0) + 1;
-        event._transferTotal = (event._transferTotal || 0) + amount;
-        onParameterUpdate({ eventId: event.id, paramType: 'final_transfer', value: day });
-        onParameterUpdate({ eventId: event.id, paramType: 'number_of_transfers', value: event._transferCount });
-        onParameterUpdate({ eventId: event.id, paramType: 'total_transfer', value: event._transferTotal });
-    };
-
     if (params.start_time == day) {
         envelopes[params.from_key].balance -= params.amount;
         envelopes[params.to_key].balance += params.amount;
-        trackTransferOccurrence(params.amount);
+        event._transferCount = (event._transferCount || 0) + 1;
+        event._transferTotal = (event._transferTotal || 0) + params.amount;
+        onParameterUpdate({ eventId: event.id, paramType: 'final_transfer', value: day });
+        onParameterUpdate({ eventId: event.id, paramType: 'number_of_transfers', value: event._transferCount });
+        onParameterUpdate({ eventId: event.id, paramType: 'total_transfer', value: event._transferTotal });
     }
     if (event.is_recurring && day <= params.end_time) {
         if ((day - params.start_time) % Math.round(params.frequency_days) == 0) {
             envelopes[params.from_key].balance -= params.amount;
             envelopes[params.to_key].balance += params.amount;
-            trackTransferOccurrence(params.amount);
+            event._transferCount = (event._transferCount || 0) + 1;
+            event._transferTotal = (event._transferTotal || 0) + params.amount;
+            onParameterUpdate({ eventId: event.id, paramType: 'final_transfer', value: day });
+            onParameterUpdate({ eventId: event.id, paramType: 'number_of_transfers', value: event._transferCount });
+            onParameterUpdate({ eventId: event.id, paramType: 'total_transfer', value: event._transferTotal });
         }
     }
 }
